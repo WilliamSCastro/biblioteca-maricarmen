@@ -7,7 +7,6 @@ import secrets
 
 api = NinjaAPI()
 
-
 # Autenticació bàsica
 class BasicAuth(HttpBasicAuth):
     def authenticate(self, request, username, password):
