@@ -13,7 +13,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 class UsuariAdmin(UserAdmin):
     fieldsets = UserAdmin.fieldsets + (
             ("Dades acadèmiques", {
-                'fields': ('centre','cicle','imatge'),
+            	'fields': ('centre','cicle','imatge', 'telefon'),
             }),
     )
 
