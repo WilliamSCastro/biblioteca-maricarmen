@@ -9,7 +9,7 @@ import re
 from ninja.files import UploadedFile
 from django.http import HttpRequest  # Import HttpRequest for type hinting
 from django.shortcuts import get_object_or_404
-import os # Import os for potential path manipulation if needed
+from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
 
 api = NinjaAPI()
 
