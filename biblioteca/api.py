@@ -239,3 +239,108 @@ def get_cataleg(request, id: int):
     data["exemplars"] = exemplar_list
 
     return data
+
+
+import csv
+import io
+from ninja import NinjaAPI, File, UploadedFile
+from ninja.responses import Response
+from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
+
+api = NinjaAPI()
+
+@api.post("/import-users/")
+def import_users(request, file: UploadedFile = File(...)):
+    # Verificamos que haya un archivo y que sea CSV
+    if not file:
+        return Response({"error": "No se proporcionó ningún archivo."}, status=400)
+    if not file.name.endswith('.csv'):
+        return Response({"error": "El archivo debe ser CSV."}, status=400)
+    
+    try:
+        data_set = file.read().decode("UTF-8")
+    except Exception as e:
+        return Response({"error": f"Error al leer el archivo: {str(e)}"}, status=400)
+    
+    io_string = io.StringIO(data_set)
+    reader = csv.DictReader(io_string)
+    
+    imported_count = 0
+    errors = []
+
+    # Documentación del formato CSV esperado:
+    #   nom, cognom1, cognom2, email, telefon, centre, grup
+    #
+    # Ejemplo:
+    #   nom,cognom1,cognom2,email,telefon,centre,grup
+    #   Albert,López,Soler,alopez@example.com,666111222,1,2
+    #
+    # donde "centre" y "grup" son IDs válidos en tus modelos Centre y Cicle.
+    
+    for index, row in enumerate(reader, start=1):
+        nom = row.get("nom", "").strip()
+        cognom1 = row.get("cognom1", "").strip()
+        cognom2 = row.get("cognom2", "").strip()
+        email = row.get("email", "").strip()
+        telefon = row.get("telefon", "").strip()
+        centre_val = row.get("centre", "").strip()
+        grup_val = row.get("grup", "").strip()
+
+        # Validación mínima: "nom" y "email" son obligatorios (o ajusta a tus necesidades)
+        if not nom or not email:
+            errors.append(f"Fila {index}: 'nom' y 'email' son obligatorios.")
+            continue
+
+        # Combinamos cognom1 y cognom2 en el last_name
+        last_name = f"{cognom1} {cognom2}".strip()
+
+        # Obtenemos el objeto Centre (si se proporciona un ID)
+        centre_obj = None
+        if centre_val:
+            try:
+                centre_obj = Centre.objects.get(pk=centre_val)
+            except Centre.DoesNotExist:
+                errors.append(f"Fila {index}: Centre con ID '{centre_val}' no encontrado.")
+        
+        # Obtenemos el objeto Cicle (interpretado como 'grup')
+        cicle_obj = None
+        if grup_val:
+            try:
+                cicle_obj = Cicle.objects.get(pk=grup_val)
+            except Cicle.DoesNotExist:
+                errors.append(f"Fila {index}: Cicle (grup) con ID '{grup_val}' no encontrado.")
+        
+        # Asignamos el username igual al email (o la lógica que prefieras)
+        username = email
+
+        # Creamos o actualizamos el usuario
+        user, created = Usuari.objects.get_or_create(
+            username=username,
+            defaults={
+                "email": email,
+                "first_name": nom,
+                "last_name": last_name,
+                "telefon": telefon,
+                "centre": centre_obj,
+                "cicle": cicle_obj,
+            }
+        )
+        
+        if not created:
+            # Si el usuario ya existía, actualizamos datos
+            user.email = email
+            user.first_name = nom
+            user.last_name = last_name
+            user.telefon = telefon
+            user.centre = centre_obj
+            user.cicle = cicle_obj
+            user.save()
+        
+        imported_count += 1
+
+    summary = {
+        "imported": imported_count,
+        "errors": errors,
+        "message": f"Importación completada. Usuarios importados: {imported_count}. Errores: {len(errors)}"
+    }
+    return summary
