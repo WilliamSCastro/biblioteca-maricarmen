@@ -10,6 +10,7 @@ from ninja.files import UploadedFile
 from django.http import HttpRequest  # Import HttpRequest for type hinting
 from django.shortcuts import get_object_or_404
 from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
+import time
 
 api = NinjaAPI()
 
@@ -80,8 +81,10 @@ def is_valid_email(email_string: str) -> bool:
         return False
     if not email_string:
         return False
-    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-    if re.match(pattern, email_string):
+    pattern = r"^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@" \
+              r"(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+" \
+              r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+    if re.match(pattern, email_string, re.IGNORECASE):
         return True
     else:
         return False
@@ -93,7 +96,7 @@ def obtenir_token(request):
     
     token = request.auth 
     user = get_user_by_token(token)
-
+    time.sleep(3)
     if user.is_superuser:
         role = "Administrador"
     elif user.groups.filter(name='Bibliotecari').exists():
@@ -126,6 +129,7 @@ def obtenir_token(request):
 @api.get("/me/", auth=AuthBearer())
 def get_current_user(request):
     user = request.auth
+    time.sleep(3)
     if user:
         user_data = format_user_data(user)
         return user_data
@@ -156,7 +160,8 @@ def update_profile(request: HttpRequest,                  # Access request for a
 
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
-
+    
+    time.sleep(2)
     errors = {}
     updated = False # Flag to check if any changes were made
 
