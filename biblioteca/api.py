@@ -10,9 +10,16 @@ from ninja.files import UploadedFile
 from django.http import HttpRequest  # Import HttpRequest for type hinting
 from django.shortcuts import get_object_or_404
 from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
+
 import time
 
-api = NinjaAPI()
+import csv
+import io
+from ninja import NinjaAPI, File, UploadedFile
+from ninja.responses import Response
+from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
+
+api = NinjaAPI();
 
 
 # Autenticació bàsica
@@ -157,6 +164,7 @@ def update_profile(request: HttpRequest,                  # Access request for a
     avatar: Optional[UploadedFile] = File(None) # Use File(...) to get the uploaded file, make it optional
 ):
     user = request.auth  # Get authenticated user from token
+
 
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
@@ -307,3 +315,93 @@ def get_cataleg(request, id: int):
     data["exemplars"] = exemplar_list
 
     return data
+
+
+
+@api.post("/import-users/")
+def import_users(request, file: UploadedFile = File(...)):
+    # Verificamos que haya un archivo y que sea CSV
+    if not file:
+        return Response({"error": "No se proporcionó ningún archivo."}, status=400)
+    if not file.name.endswith('.csv'):
+        return Response({"error": "El archivo debe ser CSV."}, status=400)
+    
+    try:
+        data_set = file.read().decode("UTF-8")
+    except Exception as e:
+        return Response({"error": f"Error al leer el archivo: {str(e)}"}, status=400)
+    
+    io_string = io.StringIO(data_set)
+    reader = csv.DictReader(io_string)
+    
+    imported_count = 0
+    errors = []
+
+    # Documentación del formato CSV esperado:
+    #   nom, cognom1, cognom2, email, telefon, centre, grup
+    #
+    # Ejemplo:
+    #   nom,cognom1,cognom2,email,telefon,centre,grup
+    #   Albert,López,Soler,alopez@example.com,666111222,1,2
+    #
+    # donde "centre" y "grup" son IDs válidos en tus modelos Centre y Cicle.
+    
+    for index, row in enumerate(reader, start=1):
+        nom = row.get("nom", "").strip()
+        cognom1 = row.get("cognom1", "").strip()
+        cognom2 = row.get("cognom2", "").strip()
+        email = row.get("email", "").strip()
+        telefon = row.get("telefon", "").strip()
+        centre_val = row.get("centre", "").strip()
+        grup_val = row.get("grup", "").strip()
+
+        # Validar que todos los campos estén presentes
+        if not all([nom, cognom1, cognom2, email, telefon, centre_val, grup_val]):
+            errors.append(
+                f"Fila {index}: Todos los campos son obligatorios (nom, cognom1, cognom2, email, telefon, centre, grup)."
+            )
+            continue
+
+        last_name = f"{cognom1} {cognom2}".strip()
+
+        centre_obj = None
+        try:
+            centre_obj = Centre.objects.get(pk=centre_val)
+        except Centre.DoesNotExist:
+            errors.append(f"Fila {index}: Centre con ID '{centre_val}' no encontrado.")
+            continue
+
+        cicle_obj = None
+        try:
+            cicle_obj = Cicle.objects.get(pk=grup_val)
+        except Cicle.DoesNotExist:
+            errors.append(f"Fila {index}: Cicle (grup) con ID '{grup_val}' no encontrado.")
+            continue
+
+        username = email
+
+        user, created = Usuari.objects.get_or_create(
+            username=username,
+            defaults={
+                "email": email,
+                "first_name": nom,
+                "last_name": last_name,
+                "telefon": telefon,
+                "centre": centre_obj,
+                "cicle": cicle_obj,
+            }
+        )
+
+        if not created:
+            errors.append(f"Fila {index}: Usuario con email '{email}' ya existe.")
+            continue
+
+        imported_count += 1
+
+    summary = {
+        "imported": imported_count,
+        "errors": errors,
+        "message": f"Importación completada. Usuarios importados: {imported_count}. Errores: {len(errors)}"
+    }
+    return summary
+
