@@ -6,6 +6,14 @@ from typing import List, Optional, Union, Literal
 import secrets
 from django.db.models import Q
 from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
+import csv
+import io
+from ninja import NinjaAPI, File, UploadedFile
+from ninja.responses import Response
+from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
+
+api = NinjaAPI()
+
 api = NinjaAPI()
 
 
@@ -127,10 +135,6 @@ def buscar_cataleg(request, q: str):
 
 
 
-
-
-
-
 @api.get("/cataleg/{id}", response=dict)
 def get_cataleg(request, id: int):
     try:
@@ -241,13 +245,6 @@ def get_cataleg(request, id: int):
     return data
 
 
-import csv
-import io
-from ninja import NinjaAPI, File, UploadedFile
-from ninja.responses import Response
-from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
-
-api = NinjaAPI()
 
 @api.post("/import-users/")
 def import_users(request, file: UploadedFile = File(...)):
@@ -286,34 +283,31 @@ def import_users(request, file: UploadedFile = File(...)):
         centre_val = row.get("centre", "").strip()
         grup_val = row.get("grup", "").strip()
 
-        # Validación mínima: "nom" y "email" son obligatorios (o ajusta a tus necesidades)
-        if not nom or not email:
-            errors.append(f"Fila {index}: 'nom' y 'email' son obligatorios.")
+        # Validar que todos los campos estén presentes
+        if not all([nom, cognom1, cognom2, email, telefon, centre_val, grup_val]):
+            errors.append(
+                f"Fila {index}: Todos los campos son obligatorios (nom, cognom1, cognom2, email, telefon, centre, grup)."
+            )
             continue
 
-        # Combinamos cognom1 y cognom2 en el last_name
         last_name = f"{cognom1} {cognom2}".strip()
 
-        # Obtenemos el objeto Centre (si se proporciona un ID)
         centre_obj = None
-        if centre_val:
-            try:
-                centre_obj = Centre.objects.get(pk=centre_val)
-            except Centre.DoesNotExist:
-                errors.append(f"Fila {index}: Centre con ID '{centre_val}' no encontrado.")
-        
-        # Obtenemos el objeto Cicle (interpretado como 'grup')
+        try:
+            centre_obj = Centre.objects.get(pk=centre_val)
+        except Centre.DoesNotExist:
+            errors.append(f"Fila {index}: Centre con ID '{centre_val}' no encontrado.")
+            continue
+
         cicle_obj = None
-        if grup_val:
-            try:
-                cicle_obj = Cicle.objects.get(pk=grup_val)
-            except Cicle.DoesNotExist:
-                errors.append(f"Fila {index}: Cicle (grup) con ID '{grup_val}' no encontrado.")
-        
-        # Asignamos el username igual al email (o la lógica que prefieras)
+        try:
+            cicle_obj = Cicle.objects.get(pk=grup_val)
+        except Cicle.DoesNotExist:
+            errors.append(f"Fila {index}: Cicle (grup) con ID '{grup_val}' no encontrado.")
+            continue
+
         username = email
 
-        # Creamos o actualizamos el usuario
         user, created = Usuari.objects.get_or_create(
             username=username,
             defaults={
@@ -325,17 +319,11 @@ def import_users(request, file: UploadedFile = File(...)):
                 "cicle": cicle_obj,
             }
         )
-        
+
         if not created:
-            # Si el usuario ya existía, actualizamos datos
-            user.email = email
-            user.first_name = nom
-            user.last_name = last_name
-            user.telefon = telefon
-            user.centre = centre_obj
-            user.cicle = cicle_obj
-            user.save()
-        
+            errors.append(f"Fila {index}: Usuario con email '{email}' ya existe.")
+            continue
+
         imported_count += 1
 
     summary = {
