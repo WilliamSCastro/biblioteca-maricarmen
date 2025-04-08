@@ -105,7 +105,6 @@ class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     imatge = models.ImageField(upload_to='imatges/')
 
-
 # Usuaris
 
 class Cicle(models.Model):

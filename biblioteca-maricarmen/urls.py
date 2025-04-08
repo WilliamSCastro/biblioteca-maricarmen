@@ -18,12 +18,16 @@ from django.contrib import admin
 from django.urls import path, re_path
 from biblioteca import views
 from ninja import NinjaAPI
+from django.conf import settings
+from django.conf.urls.static import static
 
 from biblioteca.api import api
 
 urlpatterns = [
-    path('', views.index),
-    path('admin/', admin.site.urls),
-    path("api/", api.urls),
-    re_path(r'^.*$', views.custom_404_view),
-]
+    path('', views.index),  
+    path('admin/', admin.site.urls),  
+    path("api/", api.urls), 
+] 
+
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += [re_path(r'^.*$', views.custom_404_view)]
