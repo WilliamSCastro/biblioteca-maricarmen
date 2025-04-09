@@ -315,16 +315,16 @@ def get_cataleg(request, id: int):
 
 @api.post("/import-users/")
 def import_users(request, file: UploadedFile = File(...)):
-    # Verificamos que haya un archivo y que sea CSV
+    # Verifiquem que hi hagi un fitxer i que sigui CSV
     if not file:
-        return Response({"error": "No se proporcionó ningún archivo."}, status=400)
+        return Response({"error": "No s'ha proporcionat cap fitxer."}, status=400)
     if not file.name.endswith('.csv'):
-        return Response({"error": "El archivo debe ser CSV."}, status=400)
+        return Response({"error": "El fitxer ha de ser en format CSV."}, status=400)
     
     try:
         data_set = file.read().decode("UTF-8")
     except Exception as e:
-        return Response({"error": f"Error al leer el archivo: {str(e)}"}, status=400)
+        return Response({"error": f"Error en llegir el fitxer: {str(e)}"}, status=400)
     
     io_string = io.StringIO(data_set)
     reader = csv.DictReader(io_string)
@@ -332,14 +332,14 @@ def import_users(request, file: UploadedFile = File(...)):
     imported_count = 0
     errors = []
 
-    # Documentación del formato CSV esperado:
+    # Documentació del format CSV esperat:
     #   nom, cognom1, cognom2, email, telefon, centre, grup
     #
-    # Ejemplo:
+    # Exemple:
     #   nom,cognom1,cognom2,email,telefon,centre,grup
     #   Albert,López,Soler,alopez@example.com,666111222,1,2
     #
-    # donde "centre" y "grup" son IDs válidos en tus modelos Centre y Cicle.
+    # on "centre" i "grup" són IDs vàlids dels models Centre i Cicle.
     
     for index, row in enumerate(reader, start=1):
         nom = row.get("nom", "").strip()
@@ -350,10 +350,10 @@ def import_users(request, file: UploadedFile = File(...)):
         centre_val = row.get("centre", "").strip()
         grup_val = row.get("grup", "").strip()
 
-        # Validar que todos los campos estén presentes
+        # Validar que tots els camps estiguin presents
         if not all([nom, cognom1, cognom2, email, telefon, centre_val, grup_val]):
             errors.append(
-                f"Fila {index}: Todos los campos son obligatorios (nom, cognom1, cognom2, email, telefon, centre, grup)."
+                f"Fila {index}: Tots els camps són obligatoris (nom, cognom1, cognom2, email, telefon, centre, grup)."
             )
             continue
 
@@ -363,14 +363,14 @@ def import_users(request, file: UploadedFile = File(...)):
         try:
             centre_obj = Centre.objects.get(pk=centre_val)
         except Centre.DoesNotExist:
-            errors.append(f"Fila {index}: Centre con ID '{centre_val}' no encontrado.")
+            errors.append(f"Fila {index}: Centre amb ID '{centre_val}' no trobat.")
             continue
 
         cicle_obj = None
         try:
             cicle_obj = Cicle.objects.get(pk=grup_val)
         except Cicle.DoesNotExist:
-            errors.append(f"Fila {index}: Cicle (grup) con ID '{grup_val}' no encontrado.")
+            errors.append(f"Fila {index}: Cicle (grup) amb ID '{grup_val}' no trobat.")
             continue
 
         username = email
@@ -388,7 +388,7 @@ def import_users(request, file: UploadedFile = File(...)):
         )
 
         if not created:
-            errors.append(f"Fila {index}: Usuario con email '{email}' ya existe.")
+            errors.append(f"Fila {index}: L'usuari amb l'email '{email}' ja existeix.")
             continue
 
         imported_count += 1
@@ -396,7 +396,6 @@ def import_users(request, file: UploadedFile = File(...)):
     summary = {
         "imported": imported_count,
         "errors": errors,
-        "message": f"Importación completada. Usuarios importados: {imported_count}. Errores: {len(errors)}"
+        "message": f"Importació completada. Usuaris importats: {imported_count}. Errors: {len(errors)}"
     }
     return summary
-
