@@ -1,151 +1,185 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils.html import escape, mark_safe
 from .models import *
 
-# Classe base per fer models visibles per staff
-class VisibleToStaffAdmin(admin.ModelAdmin):
-    def has_module_permission(self, request):
-        return request.user.is_superuser or request.user.is_staff
 
-    def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.is_staff
+# Admins per cada model
+@admin.register(Centre)
+class CentreAdmin(admin.ModelAdmin):
+    list_display = ['nom']
 
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.is_staff
-
-    def has_add_permission(self, request):
-        return request.user.is_superuser or request.user.is_staff
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser or request.user.is_staff
-
-# Admins específics per als models
+@admin.register(Categoria)
 class CategoriaAdmin(admin.ModelAdmin):
-    list_display = ('nom', 'parent')
-    ordering = ('parent', 'nom')
+    list_display = ['nom', 'parent']
+    ordering = ['parent', 'nom']
 
-class ExemplarAdmin(admin.ModelAdmin):
-    readonly_fields = ('centre',)
+@admin.register(Pais)
+class PaisAdmin(admin.ModelAdmin):
+    list_display = ['nom']
 
-    def staff_permission(self, request):
-        return request.user.is_staff
+@admin.register(Llengua)
+class LlenguaAdmin(admin.ModelAdmin):
+    list_display = ['nom']
 
-    def has_module_permission(self, request):
-        return self.staff_permission(request)
+@admin.register(Cataleg)
+class CatalegAdmin(admin.ModelAdmin):
+    list_display = ['titol', 'autor', 'CDU', 'signatura']
+    search_fields = ['titol', 'autor']
 
-    def has_change_permission(self, request, obj=None):
-        return self.staff_permission(request)
-
-    def has_view_permission(self, request, obj=None):
-        return self.staff_permission(request)
-
-    def has_add_permission(self, request):
-        return self.staff_permission(request)
-
-    def save_model(self, request, obj, form, change):
-        if not obj.pk:
-            obj.centre = request.user.centre
-        super().save_model(request, obj, form, change)
-
-    def get_form(self, request, obj=None, **kwargs):
-        form = super().get_form(request, obj, **kwargs)
-        return form
-
-class UsuariAdmin(admin.ModelAdmin):
-    search_fields = ['username__icontains', 'first_name__icontains', 'last_name__icontains']
-
-    def staff_permission(self, request):
-        return request.user.is_staff
-
-    def has_module_permission(self, request):
-        return self.staff_permission(request)
-
-    def has_change_permission(self, request, obj=None):
-        return self.staff_permission(request)
-
-    def has_view_permission(self, request, obj=None):
-        return self.staff_permission(request)
-
-    SENSITIVE_FIELDS = [
-        'is_superuser', 'groups', 'user_permissions'
-    ]
-
-    def get_readonly_fields(self, request, obj=None):
-        if request.user.is_staff and not request.user.is_superuser:
-            return self.SENSITIVE_FIELDS
-        return []
-
-    def get_fields(self, request, obj=None):
-        return [
-            'username', 'first_name', 'last_name', 'email',
-            'groups', 'user_permissions', 'date_joined', 'last_login', 'telefon'
-        ]
 
 class ExemplarsInline(admin.TabularInline):
     model = Exemplar
-    extra = 1
-    readonly_fields = ('pk', 'centre')
-    fields = ('pk', 'registre', 'exclos_prestec', 'baixa', 'centre')
+    extra = 0
+
+    def get_readonly_fields(self, request, obj=None):
+        # Hacer que el campo 'centre' sea de solo lectura solo para el grupo 'Bibliotecari'
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            return ('centre',)
+        return ()
+
+    def get_queryset(self, request):
+        # Obtenemos el queryset base
+        qs = super().get_queryset(request)
+        
+        # Si el usuario es superuser, devolvemos todos los exemplars
+        if request.user.is_superuser:
+            return qs
+        
+        # Si el usuario pertenece al grupo 'Bibliotecari', filtramos por su centro
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            return qs.filter(centre=request.user.centre)
+        
+        # Si no es superuser ni bibliotecari, devolvemos un queryset vacío
+        return qs.none()
+
+    def save_new_objects(self, request, form, change):
+        # Esta función existe en versiones antiguas. Para modernizar, mejor usamos `save_formset` en el ModelAdmin
+        return super().save_new_objects(request, form, change)
+    
+@admin.register(Llibre)
+class LlibreAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'autor', 'editorial', 'ISBN']
+    search_fields = ['titol', 'autor', 'ISBN']
+    filter_horizontal = ('tags',)
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs  # Superuser ve todos los Exemplars
-        if request.user.has_perm("biblioteca.view_exemplar"):
-            return qs.filter(centre=request.user.centre)  # Staff ve solo los de su centro
-        return qs.none()  # Sin permisos, no ve nada
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            return qs.filter(exemplar__centre=request.user.centre).distinct()
+        return qs
     
+    def save_formset(self, request, form, formset, change):
+        instances = formset.save(commit=False)
+        for obj in instances:
+            if request.user.groups.filter(name="Bibliotecari").exists():
+                obj.centre = request.user.centre
+            obj.save()
+        formset.save_m2m()
 
-class LlibreAdmin(admin.ModelAdmin):
+
+@admin.register(Revista)
+class RevistaAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'ISSN', 'editorial']
+    search_fields = ['titol', 'ISSN']
     filter_horizontal = ('tags',)
-    inlines = [ExemplarsInline,]
-    search_fields = ('titol', 'autor', 'CDU', 'signatura', 'ISBN', 'editorial', 'colleccio')
-    list_display = ('titol', 'autor', 'editorial', 'num_exemplars')
-    readonly_fields = ('thumb',)
 
-    def num_exemplars(self, obj):
-        return obj.exemplar_set.count()
+@admin.register(CD)
+class CDAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'discografica', 'estil']
+    filter_horizontal = ('tags',)
 
-    def thumb(self, obj):
-        return mark_safe("<img src='{}' />".format(escape(obj.thumbnail_url)))
+@admin.register(DVD)
+class DVDAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'productora', 'duracio']
+    filter_horizontal = ('tags',)
 
-    thumb.allow_tags = True
+@admin.register(BR)
+class BRAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'productora', 'duracio']
+    filter_horizontal = ('tags',)
 
-# Admins per als models
-class PaisAdmin(VisibleToStaffAdmin): pass
-class LlenguaAdmin(VisibleToStaffAdmin): pass
-class RevistaAdmin(VisibleToStaffAdmin): pass
-class CDAdmin(VisibleToStaffAdmin): pass
-class DVDAdmin(VisibleToStaffAdmin): pass
-class BRAdmin(VisibleToStaffAdmin): pass
-class DispositiuAdmin(VisibleToStaffAdmin): pass
-class CicleAdmin(VisibleToStaffAdmin): pass
-class ReservaAdmin(VisibleToStaffAdmin): pass
-class PeticioAdmin(VisibleToStaffAdmin): pass
+@admin.register(Dispositiu)
+class DispositiuAdmin(admin.ModelAdmin):
+    inlines = [ExemplarsInline]
+    list_display = ['titol', 'marca', 'model']
+    filter_horizontal = ('tags',)
 
-admin.site.register(Exemplar, ExemplarAdmin)
-admin.site.register(Usuari, UsuariAdmin)
-admin.site.register(Categoria, CategoriaAdmin)
-admin.site.register(Pais, PaisAdmin)
-admin.site.register(Llengua, LlenguaAdmin)
-admin.site.register(Llibre, LlibreAdmin)
-admin.site.register(Revista, RevistaAdmin)
-admin.site.register(CD, CDAdmin)
-admin.site.register(DVD, DVDAdmin)
-admin.site.register(BR, BRAdmin)
-admin.site.register(Dispositiu, DispositiuAdmin)
-admin.site.register(Cicle, CicleAdmin)
-admin.site.register(Reserva, ReservaAdmin)
-admin.site.register(Peticio, PeticioAdmin)
+@admin.register(Exemplar)
+class ExemplarAdmin(admin.ModelAdmin):
+    list_display = ['cataleg', 'registre', 'centre', 'exclos_prestec', 'baixa']
+    search_fields = ['cataleg__titol', 'registre']
 
+    def get_fields(self, request, obj=None):
+        fields = super().get_fields(request, obj)
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            fields = [f for f in fields if f != 'centre']
+        return fields
+
+    def save_model(self, request, obj, form, change):
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            obj.centre = request.user.centre
+        super().save_model(request, obj, form, change)
+
+@admin.register(Imatge)
+class ImatgeAdmin(admin.ModelAdmin):
+    list_display = ['cataleg', 'imatge']
+
+@admin.register(Cicle)
+class CicleAdmin(admin.ModelAdmin):
+    list_display = ['nom']
+
+@admin.register(Usuari)
+class UsuariAdmin(UserAdmin):
+    model = Usuari
+    fieldsets = UserAdmin.fieldsets + (
+        ('Informació extra', {'fields': ('centre', 'cicle', 'telefon', 'imatge', 'auth_token')}),
+    )
+    list_display = ['username', 'first_name', 'last_name', 'email', 'centre', 'is_staff']
+
+    def get_fieldsets(self, request, obj=None):
+        # Campos a ocultar para los usuarios del grupo 'Bibliotecari'
+        hidden_fields = {'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions',
+                         'centre', 'cicle', 'imatge', 'auth_token'}
+
+        # Obtener los fieldsets base
+        fieldsets = super().get_fieldsets(request, obj)
+
+        # Si el usuario pertenece al grupo 'Bibliotecari', ocultar los campos
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            filtered_fieldsets = []
+            for name, data in fieldsets:
+                fields = data.get('fields', [])
+                # Filtrar los campos que no están en hidden_fields
+                filtered_fields = [field for field in fields if field not in hidden_fields]
+                if filtered_fields:
+                    filtered_fieldsets.append((name, {'fields': filtered_fields}))
+            return filtered_fieldsets
+
+        return fieldsets
+
+@admin.register(Reserva)
+class ReservaAdmin(admin.ModelAdmin):
+    list_display = ['usuari', 'exemplar', 'data']
+    search_fields = ['usuari__username', 'exemplar__registre']
+
+@admin.register(Prestec)
 class PrestecAdmin(admin.ModelAdmin):
-    readonly_fields = ('data_prestec',)
-    fields = ('exemplar', 'usuari', 'data_prestec', 'data_retorn', 'anotacions')
-    list_display = ('exemplar', 'usuari', 'data_prestec', 'data_retorn')
+    list_display = ['usuari', 'exemplar', 'data_prestec', 'data_retorn']
+    readonly_fields = ['data_prestec']
+    search_fields = ['usuari__username', 'exemplar__registre']
 
-admin.site.register(Centre)
-admin.site.register(Cataleg)
-admin.site.register(Log)
-admin.site.register(Prestec, PrestecAdmin)
-admin.site.register(Imatge)
+@admin.register(Peticio)
+class PeticioAdmin(admin.ModelAdmin):
+    list_display = ['usuari', 'titol', 'data']
+    search_fields = ['usuari__username', 'titol']
+
+@admin.register(Log)
+class LogAdmin(admin.ModelAdmin):
+    list_display = ['accio', 'tipus', 'usuari', 'data_accio']
+    list_filter = ['tipus', 'data_accio']
+    search_fields = ['accio', 'usuari']
