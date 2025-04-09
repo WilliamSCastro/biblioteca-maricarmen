@@ -80,6 +80,7 @@ class CategoriaAdmin(admin.ModelAdmin):
 # debe poder registrar nuevos Exemplars
 
 class ExemplarAdmin(admin.ModelAdmin):
+    readonly_fields = ('centre',)
     #bloque que aplica permisos de admin panel a usuarios staff
     def staff_permission(self, request):
         return request.user.is_staff
@@ -97,21 +98,21 @@ class ExemplarAdmin(admin.ModelAdmin):
         return self.staff_permission(request)
     
     # # si queremos sobreescribir el valor centre por el del usuario
-    # def save_model(self, request, obj, form, change):
-    #     if not obj.pk:
-    #         obj.centre = request.user.centre
-    #     super().save_model(request, obj, form, change)
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.centre = request.user.centre
+        super().save_model(request, obj, form, change)
 
     # # si queremos que se muestre el valor centre por el del usuario
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
-        form.base_fields['centre'].initial = request.user.centre
+        # form.base_fields['centre'].initial = request.user.centre
         return form
     
 class UsuariAdmin(admin.ModelAdmin):
     search_fields = ['username__icontains', 'first_name__icontains', 'last_name__icontains']
 
-    #bloque que aplica permisos de admin panel a usuarios staff
+    # Permitir acceso al panel a usuarios staff
     def staff_permission(self, request):
         return request.user.is_staff
 
@@ -123,18 +124,23 @@ class UsuariAdmin(admin.ModelAdmin):
 
     def has_view_permission(self, request, obj=None):
         return self.staff_permission(request)
-    
+
+    # Campos sensibles que solo puede editar un superuser
+    SENSITIVE_FIELDS = [
+        'is_superuser', 'groups', 'user_permissions'
+    ]
+
     def get_readonly_fields(self, request, obj=None):
         if request.user.is_staff and not request.user.is_superuser:
-            return ['username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions', 'date_joined', 'last_login']
+            return self.SENSITIVE_FIELDS
         return []
 
     def get_fields(self, request, obj=None):
-        if request.user.is_staff and not request.user.is_superuser:
-            return ['telefon'] + self.get_readonly_fields(request, obj)
-        return ['username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions', 'date_joined', 'last_login']
-    
-
+        # Mostrar todos los campos incluyendo los sensibles
+        return [
+            'username', 'first_name', 'last_name', 'email',
+            'groups', 'user_permissions', 'date_joined', 'last_login', 'telefon'
+        ]
 
     
 
