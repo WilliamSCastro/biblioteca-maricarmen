@@ -45,7 +45,7 @@ class Cataleg(models.Model):
         return self.titol
 
 class Llibre(Cataleg):
-    ISBN = models.CharField(max_length=13, blank=True, null=True)
+    ISBN = models.CharField(max_length=17, blank=True, null=True)
     editorial = models.CharField(max_length=100, blank=True, null=True)
     colleccio = models.CharField(max_length=100, blank=True, null=True)
     lloc = models.CharField(max_length=100, blank=True, null=True)

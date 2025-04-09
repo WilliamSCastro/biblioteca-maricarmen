@@ -56,6 +56,7 @@ class Command(BaseCommand):
                 titol = faker.sentence(nb_words=3)
                 autor = faker.name()
                 isbn = faker.isbn13()
+                print(isbn)
                 editorial = faker.company()
                 pais = faker.random_element(list(paises.values()))
                 numero = randint(1, 1000)
