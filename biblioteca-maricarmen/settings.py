@@ -129,3 +129,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+# Media files settings
+MEDIA_URL = '/media/'  # URL to access media files
+
+# Absolute file system path to the directory where media files will be stored
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')  # The folder will be created in the root of your project

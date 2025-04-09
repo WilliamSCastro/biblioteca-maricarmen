@@ -1,88 +1,136 @@
 from django.core.management.base import BaseCommand
 from faker import Faker
-from random import randint
-from biblioteca.models import Usuari, Llibre, Exemplar, Llengua, Categoria, Pais, Centre, Cicle, Revista
+from random import randint, choice
+from datetime import timedelta, datetime
+from biblioteca.models import (
+    Llibre, Revista, CD, DVD, BR, Dispositiu, Exemplar,
+    Llengua, Categoria, Pais, Centre
+)
 from django.db import IntegrityError
+from django.utils import timezone
 
 
 class Command(BaseCommand):
-    help = "Genera datos falsos para usuarios, libros, ejemplares, lenguas, centros y más"
+    help = "Genera dades falses per a catàleg i exemplars"
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.SUCCESS("Generando datos falsos..."))
+        self.stdout.write(self.style.SUCCESS("📚 Generant catàleg fals..."))
 
-        faker = Faker("es_ES")  # Usar Faker para Español
+        fake = Faker("es_ES")
 
-        # Crear Lenguas
-        llengues_data = ["Catalán", "Castellano", "Inglés", "Italiano"]
-        llengues = {nom: Llengua.objects.get_or_create(nom=nom)[0] for nom in llengues_data}
+        llengues = [Llengua.objects.get_or_create(nom=nom)[0] for nom in ["Català", "Castellà", "Anglès"]]
+        paisos = [Pais.objects.get_or_create(nom=nom)[0] for nom in ["Espanya", "França", "Estats Units"]]
+        categories = [Categoria.objects.get_or_create(nom=nom)[0] for nom in ["Ficció", "Tecnologia", "Història"]]
+        centres = list(Centre.objects.all())
 
-        # Crear Países
-        paises_data = ["España", "México", "Argentina", "Italia"]
-        paises = {nom: Pais.objects.get_or_create(nom=nom)[0] for nom in paises_data}
+        def assign_tags(instance):
+            instance.save()
+            instance.tags.set([choice(categories)])
 
-        # Crear Categorías
-        categorias_data = ["Ficción", "No Ficción", "Ciencia", "Tecnología", "Historia"]
-        categorias = {nom: Categoria.objects.get_or_create(nom=nom)[0] for nom in categorias_data}
+        def create_exemplars(obj):
+            for _ in range(randint(2, 5)):
+                try:
+                    Exemplar.objects.get_or_create(
+                        cataleg=obj,
+                        registre=fake.uuid4(),
+                        centre=choice(centres)
+                    )
+                except IntegrityError:
+                    continue
 
-        # Crear Centros
-        centros_data = ["Centro A", "Centro B", "Centro C", "Centro D"]
-        centros = {nom: Centre.objects.get_or_create(nom=nom)[0] for nom in centros_data}
-
-        # Crear Ciclos
-        ciclos_data = ["Ciclo 1", "Ciclo 2", "Ciclo 3"]
-        ciclos = {nom: Cicle.objects.get_or_create(nom=nom)[0] for nom in ciclos_data}
-
-        # Crear Usuarios
-        usuarios = []
-        for _ in range(100):  # Crear 100 usuarios
-            username = faker.unique.user_name()
-            email = faker.unique.email()
-            user = Usuari.objects.create_user(
-                username=username,
-                email=email,
-                password="password123",
-                first_name=faker.first_name(),
-                last_name=faker.last_name(),
-                telefon=randint(600000000, 699999999),
-                centre=faker.random_element(list(centros.values())),
-                cicle=faker.random_element(list(ciclos.values()))
+        # 📘 LLIBRES
+        for _ in range(20):
+            llibre = Llibre.objects.create(
+                titol=fake.sentence(nb_words=3),
+                titol_original=fake.sentence(nb_words=3),
+                autor=fake.name(),
+                ISBN=fake.isbn13(),
+                editorial=fake.company(),
+                lloc=fake.city(),
+                pais=choice(paisos),
+                llengua=choice(llengues),
+                numero=randint(1, 100),
+                volums=randint(1, 3),
+                pagines=randint(100, 500),
+                signatura=f"{randint(100,999)}.{chr(randint(65,90))}",
+                data_edicio=fake.date_between(start_date='-10y', end_date='today'),
+                resum=fake.text(200),
+                anotacions=fake.text(100),
+                mides=f"{randint(20,30)}cm",
             )
-            usuarios.append(user)
+            assign_tags(llibre)
+            create_exemplars(llibre)
 
-        # Crear Libros y Ejemplares
-        for idioma, llengua in llengues.items():
-            for _ in range(250):  # Crear 250 libros por idioma
-                titol = faker.sentence(nb_words=3)
-                autor = faker.name()
-                isbn = faker.isbn13()
-                editorial = faker.company()
-                pais = faker.random_element(list(paises.values()))
-                numero = randint(1, 1000)
-                volums = randint(1, 5)
-                pagines = randint(100, 500)
-                llibre = Llibre.objects.get_or_create(
-                    titol=titol,
-                    autor=autor,
-                    ISBN=isbn,
-                    editorial=editorial,
-                    pais=pais,
-                    llengua=llengua,
-                    numero=numero,
-                    volums=volums,
-                    pagines=pagines
-                )[0]
+        # 📙 REVISTES
+        for _ in range(10):
+            revista = Revista.objects.create(
+                titol=fake.catch_phrase(),
+                titol_original=None,
+                autor=fake.name(),
+                ISSN=str(randint(1000000000000, 9999999999999)),
+                editorial=fake.company(),
+                lloc=fake.city(),
+                pais=choice(paisos),
+                llengua=choice(llengues),
+                numero=randint(1, 50),
+                volums=randint(1, 5),
+                pagines=randint(50, 150),
+                signatura=f"{randint(100,999)}.{chr(randint(65,90))}",
+                data_edicio=fake.date_between(start_date='-5y', end_date='today'),
+                resum=fake.text(200),
+                anotacions=fake.text(100),
+                mides=f"{randint(20,30)}cm",
+            )
+            assign_tags(revista)
+            create_exemplars(revista)
 
-                # Crear Ejemplares
-                for _ in range(5):  # Crear 5 ejemplares por libro
-                    registre = faker.uuid4()
-                    try:
-                        Exemplar.objects.get_or_create(
-                            cataleg=llibre,
-                            registre=registre,
-                            centre=faker.random_element(list(centros.values()))
-                        )
-                    except IntegrityError:
-                        continue  # Si ya existe el ejemplar, se genera otro
+        # 💿 CDs
+        for _ in range(10):
+            cd = CD.objects.create(
+                titol=fake.catch_phrase(),
+                autor=fake.name(),
+                discografica=fake.company(),
+                estil=fake.word(),
+                duracio=fake.time_object(),
+                signatura=f"{randint(100,999)}.CD",
+            )
+            assign_tags(cd)
+            create_exemplars(cd)
 
-        self.stdout.write(self.style.SUCCESS("✅ Datos falsos generados con éxito 🎉"))
+        # 📀 DVDs
+        for _ in range(10):
+            dvd = DVD.objects.create(
+                titol=fake.catch_phrase(),
+                autor=fake.name(),
+                productora=fake.company(),
+                duracio=fake.time_object(),
+                signatura=f"{randint(100,999)}.DVD",
+            )
+            assign_tags(dvd)
+            create_exemplars(dvd)
+
+        # 🔵 BR (Blu-Ray)
+        for _ in range(10):
+            br = BR.objects.create(
+                titol=fake.catch_phrase(),
+                autor=fake.name(),
+                productora=fake.company(),
+                duracio=fake.time_object(),
+                signatura=f"{randint(100,999)}.BR",
+            )
+            assign_tags(br)
+            create_exemplars(br)
+
+        # 💻 Dispositius
+        for _ in range(10):
+            dispositiu = Dispositiu.objects.create(
+                titol=f"Dispositiu {fake.word()}",
+                autor=None,
+                marca=fake.company(),
+                model=fake.word(),
+                signatura=f"{randint(100,999)}.D",
+            )
+            assign_tags(dispositiu)
+            create_exemplars(dispositiu)
+
+        self.stdout.write(self.style.SUCCESS("✅ Catàleg fals generat amb èxit! 🎉"))

@@ -3,10 +3,11 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
 
-
 class Centre(models.Model):
     nom = models.CharField(max_length=200)
 
+    def __str__(self):
+        return self.nom
 
 class Categoria(models.Model):
     class Meta:
@@ -45,7 +46,7 @@ class Cataleg(models.Model):
         return self.titol
 
 class Llibre(Cataleg):
-    ISBN = models.CharField(max_length=13, blank=True, null=True)
+    ISBN = models.CharField(max_length=17, blank=True, null=True)
     editorial = models.CharField(max_length=100, blank=True, null=True)
     colleccio = models.CharField(max_length=100, blank=True, null=True)
     lloc = models.CharField(max_length=100, blank=True, null=True)
@@ -104,7 +105,6 @@ class Exemplar(models.Model):
 class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     imatge = models.ImageField(upload_to='imatges/')
-
 
 # Usuaris
 
