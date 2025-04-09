@@ -320,53 +320,59 @@ def import_users(request, file: UploadedFile = File(...)):
         return Response({"error": "No s'ha proporcionat cap fitxer."}, status=400)
     if not file.name.endswith('.csv'):
         return Response({"error": "El fitxer ha de ser en format CSV."}, status=400)
-    
+
     try:
         data_set = file.read().decode("UTF-8")
     except Exception as e:
         return Response({"error": f"Error en llegir el fitxer: {str(e)}"}, status=400)
-    
+
     io_string = io.StringIO(data_set)
     reader = csv.DictReader(io_string)
-    
+
+    # Validem que les columnes siguin correctes
+    required_fields = {"nom", "cognom1", "cognom2", "email", "telefon", "centre", "grup"}
+    if not required_fields.issubset(set(reader.fieldnames or [])):
+        return Response({
+            "error": f"El fitxer CSV ha de contenir les següents columnes: {', '.join(required_fields)}"
+        }, status=400)
+
     imported_count = 0
     errors = []
 
-    # Documentació del format CSV esperat:
-    #   nom, cognom1, cognom2, email, telefon, centre, grup
-    #
-    # Exemple:
-    #   nom,cognom1,cognom2,email,telefon,centre,grup
-    #   Albert,López,Soler,alopez@example.com,666111222,1,2
-    #
-    # on "centre" i "grup" són IDs vàlids dels models Centre i Cicle.
-    
     for index, row in enumerate(reader, start=1):
-        nom = row.get("nom", "").strip()
-        cognom1 = row.get("cognom1", "").strip()
-        cognom2 = row.get("cognom2", "").strip()
-        email = row.get("email", "").strip()
-        telefon = row.get("telefon", "").strip()
-        centre_val = row.get("centre", "").strip()
-        grup_val = row.get("grup", "").strip()
+        # Agafem les dades crues
+        nom_raw = row.get("nom")
+        cognom1_raw = row.get("cognom1")
+        cognom2_raw = row.get("cognom2")
+        email_raw = row.get("email")
+        telefon_raw = row.get("telefon")
+        centre_val_raw = row.get("centre")
+        grup_val_raw = row.get("grup")
 
-        # Validar que tots els camps estiguin presents
-        if not all([nom, cognom1, cognom2, email, telefon, centre_val, grup_val]):
+        # Comprovem que cap sigui None o buit
+        if not all([nom_raw, cognom1_raw, cognom2_raw, email_raw, telefon_raw, centre_val_raw, grup_val_raw]):
             errors.append(
                 f"Fila {index}: Tots els camps són obligatoris (nom, cognom1, cognom2, email, telefon, centre, grup)."
             )
             continue
 
-        last_name = f"{cognom1} {cognom2}".strip()
+        # Netegem els valors
+        nom = nom_raw.strip()
+        cognom1 = cognom1_raw.strip()
+        cognom2 = cognom2_raw.strip()
+        email = email_raw.strip()
+        telefon = telefon_raw.strip()
+        centre_val = centre_val_raw.strip()
+        grup_val = grup_val_raw.strip()
 
-        centre_obj = None
+        last_name = f"{cognom1} {cognom2}"
+
         try:
             centre_obj = Centre.objects.get(pk=centre_val)
         except Centre.DoesNotExist:
             errors.append(f"Fila {index}: Centre amb ID '{centre_val}' no trobat.")
             continue
 
-        cicle_obj = None
         try:
             cicle_obj = Cicle.objects.get(pk=grup_val)
         except Cicle.DoesNotExist:
@@ -398,4 +404,5 @@ def import_users(request, file: UploadedFile = File(...)):
         "errors": errors,
         "message": f"Importació completada. Usuaris importats: {imported_count}. Errors: {len(errors)}"
     }
+
     return summary
