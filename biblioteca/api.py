@@ -100,7 +100,6 @@ def obtenir_token(request):
     
     token = request.auth 
     user = get_user_by_token(token)
-    time.sleep(3)
     if user.is_superuser:
         role = "Administrador"
     elif user.groups.filter(name='Bibliotecari').exists():
@@ -133,7 +132,6 @@ def obtenir_token(request):
 @api.get("/me/", auth=AuthBearer())
 def get_current_user(request):
     user = request.auth
-    time.sleep(3)
     if user:
         user_data = format_user_data(user)
         return user_data
@@ -166,7 +164,6 @@ def update_profile(request: HttpRequest,                  # Access request for a
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
     
-    time.sleep(2)
     errors = {}
     updated = False # Flag to check if any changes were made
 
@@ -201,7 +198,7 @@ def update_profile(request: HttpRequest,                  # Access request for a
             return api.create_response(request, {"type": "success_modify", "userData": format_user_data(user)}, status=200)
         except Exception as e:
             print(e)
-            return api.create_response(request, {"details": f"Error al intentar actualitzar el perfil. Torna a intentar-ho més tard {e}"}, status=500)
+            return api.create_response(request, {"details": f"Error al intentar actualitzar el perfil. Torna a intentar-ho més tard"}, status=500)
 
     return api.create_response(request, {"type": "no_change", "detail": "No changes made."}, status=200)
 
