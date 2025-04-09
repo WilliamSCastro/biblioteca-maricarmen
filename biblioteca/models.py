@@ -3,10 +3,11 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
 
-
 class Centre(models.Model):
     nom = models.CharField(max_length=200)
 
+    def __str__(self):
+        return self.nom
 
 class Categoria(models.Model):
     class Meta:
