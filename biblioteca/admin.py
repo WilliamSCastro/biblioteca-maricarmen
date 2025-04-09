@@ -62,12 +62,6 @@ class LlibreAdmin(admin.ModelAdmin):
     list_display = ['titol', 'autor', 'editorial', 'ISBN']
     search_fields = ['titol', 'autor', 'ISBN']
     filter_horizontal = ('tags',)
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.groups.filter(name="Bibliotecari").exists():
-            return qs.filter(exemplar__centre=request.user.centre).distinct()
-        return qs
     
     def save_formset(self, request, form, formset, change):
         instances = formset.save(commit=False)
