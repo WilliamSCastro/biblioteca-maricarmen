@@ -44,7 +44,7 @@ class Command(BaseCommand):
                 titol=fake.sentence(nb_words=3),
                 titol_original=fake.sentence(nb_words=3),
                 autor=fake.name(),
-                ISBN=fake.isbn13(),
+                ISBN=fake.isbn13().replace("-", ""),
                 editorial=fake.company(),
                 lloc=fake.city(),
                 pais=choice(paisos),
