@@ -139,15 +139,23 @@ def get_current_user(request):
         return api.create_response(request, {"detail": "Authentication failed"}, status=401)
 class CatalegOut(Schema):
     id: int
-    titol: str
-    autor: str
+    titol: Optional[str]               
+    autor: Optional[str]
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
-    resultats = Cataleg.objects.filter(
-        Q(titol__icontains=q) | Q(autor__icontains=q)
-    ).values("id", "titol", "autor")
-    return list(resultats)
+    resultats = list(
+        Cataleg.objects.filter(
+            Q(titol__icontains=q) | Q(autor__icontains=q)
+        ).values("id", "titol", "autor")
+    )
+
+    # Reemplazamos autor = None por texto
+    for r in resultats:
+        if r["autor"] is None:
+            r["autor"] = "No se conoce el autor"  # o "No se coneix l'autor"
+
+    return [CatalegOut(**r) for r in resultats]
 
 class ProfileUpdatePayload(Schema):
     email: str 
@@ -235,8 +243,8 @@ def get_cataleg(request, id: int):
             "editorial": llibre.editorial,
             "colleccio": llibre.colleccio,
             "lloc": llibre.lloc,
-            "pais": llibre.pais.id if llibre.pais else None,
-            "llengua": llibre.llengua.id if llibre.llengua else None,
+            "pais": llibre.pais.nom if llibre.pais else None,
+            "llengua": llibre.llengua.nom if llibre.llengua else None,
             "numero": llibre.numero,
             "volums": llibre.volums,
             "pagines": llibre.pagines,
@@ -251,8 +259,8 @@ def get_cataleg(request, id: int):
             "ISSN": revista.ISSN,
             "editorial": revista.editorial,
             "lloc": revista.lloc,
-            "pais": revista.pais.id if revista.pais else None,
-            "llengua": revista.llengua.id if revista.llengua else None,
+            "pais": revista.pais.nom if revista.pais else None,
+            "llengua": revista.llengua.nom if revista.llengua else None,
             "numero": revista.numero,
             "volums": revista.volums,
             "pagines": revista.pagines
