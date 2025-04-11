@@ -21,8 +21,8 @@ class Command(BaseCommand):
         llengues = [Llengua.objects.get_or_create(nom=nom)[0] for nom in ["Català", "Castellà", "Anglès"]]
         paisos = [Pais.objects.get_or_create(nom=nom)[0] for nom in ["Espanya", "França", "Estats Units"]]
         categories = [Categoria.objects.get_or_create(nom=nom)[0] for nom in ["Ficció", "Tecnologia", "Història"]]
-        centres = list(Centre.objects.all())
-
+        centres = list(Centre.objects.get_or_create(nom=nom)[0] for nom in ["Centre A", "Centre B", "Centre C", "Centre D", "Centre E"])
+        
         def assign_tags(instance):
             instance.save()
             instance.tags.set([choice(categories)])
@@ -51,7 +51,7 @@ class Command(BaseCommand):
                         titol=fake.sentence(nb_words=3),
                         titol_original=fake.sentence(nb_words=3),
                         autor=autor,
-                        ISBN=fake.isbn13(),
+                        ISBN=fake.isbn13().replace("-", ""),
                         editorial=fake.company(),
                         lloc=fake.city(),
                         pais=choice(paisos),
