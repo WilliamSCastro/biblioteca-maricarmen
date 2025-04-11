@@ -139,7 +139,7 @@ def get_current_user(request):
         return api.create_response(request, {"detail": "Authentication failed"}, status=401)
 class CatalegOut(Schema):
     id: int
-    titol: Optional[str]               
+    titol: Optional[str]                # Si puede venir None
     autor: Optional[str]
 
 @api.get("/buscar/", response=List[CatalegOut])
@@ -156,7 +156,6 @@ def buscar_cataleg(request, q: str):
             r["autor"] = "No se conoce el autor"  # o "No se coneix l'autor"
 
     return [CatalegOut(**r) for r in resultats]
-
 class ProfileUpdatePayload(Schema):
     email: str 
     telefon: str = None # Ensure names match frontend 'name' attributes
@@ -323,6 +322,7 @@ def get_cataleg(request, id: int):
 
 @api.post("/import-users/")
 def import_users(request, file: UploadedFile = File(...)):
+    
     # Verifiquem que hi hagi un fitxer i que sigui CSV
     if not file:
         return Response({"error": "No s'ha proporcionat cap fitxer."}, status=400)
@@ -412,5 +412,6 @@ def import_users(request, file: UploadedFile = File(...)):
         "errors": errors,
         "message": f"Importació completada. Usuaris importats: {imported_count}. Errors: {len(errors)}"
     }
+    time.sleep(10)
 
     return summary

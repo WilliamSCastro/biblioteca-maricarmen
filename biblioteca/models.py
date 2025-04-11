@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils.timezone import now
 from django.contrib.auth.hashers import make_password
+from django.core.validators import RegexValidator
 
 class Centre(models.Model):
     nom = models.CharField(max_length=200)
@@ -46,7 +47,7 @@ class Cataleg(models.Model):
         return self.titol
 
 class Llibre(Cataleg):
-    ISBN = models.CharField(max_length=17, blank=True, null=True)
+    ISBN = models.CharField(max_length=13, blank=True, null=True)
     editorial = models.CharField(max_length=100, blank=True, null=True)
     colleccio = models.CharField(max_length=100, blank=True, null=True)
     lloc = models.CharField(max_length=100, blank=True, null=True)
@@ -114,7 +115,7 @@ class Cicle(models.Model):
 class Usuari(AbstractUser):
     centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
     cicle = models.ForeignKey(Cicle,on_delete=models.SET_NULL,null=True,blank=True)
-    telefon =  models.CharField(max_length=9,blank=True,null=True)
+    telefon =  models.CharField(max_length=9,validators=[RegexValidator(regex=r'^\d+$', message="Només es permeten números.")],blank=True,null=True)
 
     imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
     auth_token = models.CharField(max_length=32,blank=True,null=True)
