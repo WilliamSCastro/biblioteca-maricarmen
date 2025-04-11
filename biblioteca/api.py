@@ -15,7 +15,7 @@ import csv
 import io
 from ninja import NinjaAPI, File, UploadedFile
 from ninja.responses import Response
-from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
+from .models import Usuari, Centre, Grup  # Ajusta la ruta según tu estructura de proyecto
 
 api = NinjaAPI()
 
@@ -66,7 +66,7 @@ def format_user_data(user: Usuari):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "centre_id": user.centre.id if user.centre else None,
-        "cicle_id": user.cicle.id if user.cicle else None,
+        "cicle_id": user.grup.id if user.grup else None,
         "telefon": user.telefon,
         "imatge_url": user.imatge.url if user.imatge else None,
         "role": role,
@@ -115,7 +115,7 @@ def obtenir_token(request):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "centre_id": user.centre.id if user.centre else None,
-        "cicle_id": user.cicle.id if user.cicle else None,
+        "cicle_id": user.grup.id if user.grup else None,
         "telefon": user.telefon,
         "imatge_url": user.imatge.url if user.imatge else None, 
         "role": role,
@@ -382,9 +382,9 @@ def import_users(request, file: UploadedFile = File(...)):
             continue
 
         try:
-            cicle_obj = Cicle.objects.get(pk=grup_val)
-        except Cicle.DoesNotExist:
-            errors.append(f"Fila {index}: Cicle (grup) amb ID '{grup_val}' no trobat.")
+            cicle_obj = Grup.objects.get(pk=grup_val)
+        except Grup.DoesNotExist:
+            errors.append(f"Fila {index}: Grup (grup) amb ID '{grup_val}' no trobat.")
             continue
 
         username = email
@@ -397,7 +397,7 @@ def import_users(request, file: UploadedFile = File(...)):
                 "last_name": last_name,
                 "telefon": telefon,
                 "centre": centre_obj,
-                "cicle": cicle_obj,
+                "grup": cicle_obj,
             }
         )
 
