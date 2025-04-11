@@ -123,7 +123,7 @@ class ExemplarAdmin(admin.ModelAdmin):
 class ImatgeAdmin(admin.ModelAdmin):
     list_display = ['cataleg', 'imatge']
 
-@admin.register(Cicle)
+@admin.register(Grup)
 class CicleAdmin(admin.ModelAdmin):
     list_display = ['nom']
 
@@ -131,14 +131,14 @@ class CicleAdmin(admin.ModelAdmin):
 class UsuariAdmin(UserAdmin):
     model = Usuari
     fieldsets = UserAdmin.fieldsets + (
-        ('Informació extra', {'fields': ('centre', 'cicle', 'telefon', 'imatge', 'auth_token')}),
+        ('Informació extra', {'fields': ('centre', 'grup', 'telefon', 'imatge', 'auth_token')}),
     )
     list_display = ['username', 'first_name', 'last_name', 'email', 'centre', 'is_staff']
 
     def get_fieldsets(self, request, obj=None):
         # Campos a ocultar para los usuarios del grupo 'Bibliotecari'
         hidden_fields = {'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions',
-                         'centre', 'cicle', 'imatge', 'auth_token'}
+                         'centre', 'grup', 'imatge', 'auth_token'}
 
         # Obtener los fieldsets base
         fieldsets = super().get_fieldsets(request, obj)
