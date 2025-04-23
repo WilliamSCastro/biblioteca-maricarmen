@@ -70,6 +70,20 @@
             background: rgb(39, 118, 238);
             cursor: pointer;
         }
+
+        body.dark {
+            background-color: #030a22;
+        }
+
+        body.dark div {
+            background-color: #121c33;
+            border-color: white;
+        }
+
+        body.dark h1,
+        body.dark p {
+            color: #fff;
+        }
         
     </style>
 </head>
@@ -79,5 +93,19 @@
         <p>Accés prohibit</p>
         <a href="/">Tornar a l'inici</a>
     </div>
+    <script>
+        const isDark = (() => {
+          const savedTheme = localStorage.getItem("theme");
+          if (savedTheme) {
+            return savedTheme === "dark";
+          }
+          return window.matchMedia("(prefers-color-scheme: dark)").matches;
+        })();
+        console.log(isDark)
+    
+        if (isDark) {
+          document.body.classList.add("dark");
+        }
+      </script>
 </body>
 </html>
