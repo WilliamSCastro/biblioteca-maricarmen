@@ -139,6 +139,7 @@ def get_current_user(request):
         return user_data
     else:
         return api.create_response(request, {"detail": "Authentication failed"}, status=401)
+
 class CatalegOut(Schema):
     id: int
     titol: Optional[str]                # Si puede venir None
@@ -168,8 +169,6 @@ def update_profile(request: HttpRequest,                  # Access request for a
     avatar: Optional[UploadedFile] = File(None) # Use File(...) to get the uploaded file, make it optional
 ):
     user = request.auth  # Get authenticated user from token
-
-
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
     
@@ -414,7 +413,6 @@ def import_users(request, file: UploadedFile = File(...)):
         "errors": errors,
         "message": f"Importació completada. Usuaris importats: {imported_count}. Errors: {len(errors)}"
     }
-    time.sleep(10)
 
     return summary
 
