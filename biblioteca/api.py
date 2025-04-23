@@ -1,21 +1,21 @@
-from django.contrib.auth import authenticate
-from ninja import NinjaAPI, Schema, File, Form
+from ninja import NinjaAPI, File, UploadedFile,Form, Schema
 from ninja.security import HttpBasicAuth, HttpBearer
-from .models import *
 from typing import List, Optional, Union, Literal
-import secrets
-from django.db.models import Q
-import re
+from django.contrib.auth import authenticate
+
+
 from ninja.files import UploadedFile
 from django.http import HttpRequest 
-from django.shortcuts import get_object_or_404
-from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
+from django.db.models import Q
+from ninja.responses import Response
+
+from .models import *
+
+import secrets
 import time
 import csv
 import io
-from ninja import NinjaAPI, File, UploadedFile
-from ninja.responses import Response
-from .models import Usuari, Centre, Grup  # Ajusta la ruta según tu estructura de proyecto
+import re
 
 api = NinjaAPI()
 
@@ -101,7 +101,7 @@ def obtenir_token(request):
     token = request.auth 
     user = get_user_by_token(token)
     if user.is_superuser:
-        role = "Administrador"
+        role = "Bibliotecari"
     elif user.groups.filter(name='Bibliotecari').exists():
         role = "Bibliotecari"
     else:
