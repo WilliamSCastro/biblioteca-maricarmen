@@ -3,8 +3,9 @@ from ninja.security import HttpBasicAuth, HttpBearer
 from typing import List, Optional, Union, Literal
 from django.contrib.auth import authenticate
 from ninja.responses import Response
-import traceback
 
+from datetime import timedelta
+from django.utils import timezone
 from ninja.files import UploadedFile
 from django.http import HttpRequest 
 from django.db.models import Q
@@ -496,42 +497,44 @@ def search_users(request, query: str = None):
 
 @api.post("/loans/", response=LoanOut)
 def create_loan(request, data: LoanIn):
-    """
-    Crea un objeto Prestec (préstamo) y devuelve LoanOut,
-    devolviendo 404 si no existe usuario o ejemplar,
-    y usando Response para establecer el status.
-    """
     # 1. Usuario
     try:
         user = Usuari.objects.get(pk=data.userId)
     except Usuari.DoesNotExist:
-        return api.create_response(request, {"detail": "Usuario no encontrado"}, status=404)
+        return api.create_response({"detail": "Usuario no encontrado"}, status=404)
 
     # 2. Ejemplar
     try:
         exemplar = Exemplar.objects.get(pk=data.exemplarId)
     except Exemplar.DoesNotExist:
-        return api.create_response(request, {"detail": "Ejemplar no encontrado"}, status=404)
+        return api.create_response({"detail": "Ejemplar no encontrado"}, status=404)
 
-    # 3. Crear préstamo
+    # 3. Crear préstamo en un solo paso
     try:
         # Marcamos el ejemplar como excluido de préstamo
         exemplar.exclos_prestec = True
-        exemplar.save()
+        exemplar.save(update_fields=["exclos_prestec"])
 
-        # Creamos el Prestec
-        prestec = Prestec.objects.create(usuari=user, exemplar=exemplar)
-        data_out = {
-            "id": prestec.id,
-            "userId": user.id,
-            "exemplarId": exemplar.id,
-            "data_prestec": prestec.data_prestec
-        }
-        return Response(data_out, status=201)
+        hoy = timezone.now().date()
+        fecha_devolver = hoy + timedelta(days=7)
+
+        prestec = Prestec.objects.create(
+            usuari=user,
+            exemplar=exemplar,
+            data_retorn=fecha_devolver  # aquí lo incluimos al crear
+        )
+
+        return Response(
+            {
+                "id": prestec.id,
+                "userId": user.id,
+                "exemplarId": exemplar.id,
+                "data_prestec": prestec.data_prestec,  # sigue viniendo por auto_now_add
+                "data_retorn": prestec.data_retorn,
+            },
+            status=201
+        )
+
     except Exception:
         import traceback; traceback.print_exc()
-        return api.create_response(
-            request,
-            {"detail": "Error interno al crear préstamo"},
-            status=500
-        )
+        return api.create_response({"detail": "Error interno al crear préstamo"}, status=500)
