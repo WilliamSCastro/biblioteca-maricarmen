@@ -2,12 +2,14 @@ from ninja import NinjaAPI, File, UploadedFile,Form, Schema
 from ninja.security import HttpBasicAuth, HttpBearer
 from typing import List, Optional, Union, Literal
 from django.contrib.auth import authenticate
-
+from ninja.responses import Response
+import traceback
 
 from ninja.files import UploadedFile
 from django.http import HttpRequest 
 from django.db.models import Q
 from ninja.responses import Response
+from datetime import date
 
 from .models import *
 
@@ -415,3 +417,123 @@ def import_users(request, file: UploadedFile = File(...)):
     time.sleep(10)
 
     return summary
+
+
+class UserOut(Schema):
+    id: int
+    firstName: str
+    lastName: str
+    email: str
+    phone: Optional[str] = None
+    username: str
+
+class LoanIn(Schema):
+    userId: int
+    exemplarId: int
+
+class LoanOut(Schema):
+    id: int
+    userId: int
+    exemplarId: int
+    data_prestec: date
+
+# --------------------
+# Endpoints
+# --------------------
+@api.get("/users/", response=List[UserOut])
+def search_users(request, query: str = None):
+    """
+    Busca usuarios por nombre, apellido, email, teléfono o username.
+    Devuelve lista de dicts que Ninja convierte a UserOut.
+    """
+    if not query:
+        return []
+    qs = Usuari.objects.filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(telefon__icontains=query) |
+        Q(username__icontains=query)
+    )[:20]
+    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
+    return [
+        {
+            "id": u.id,
+            "firstName": u.first_name,
+            "lastName": u.last_name,
+            "email": u.email,
+            "phone": u.telefon,
+            "username": u.username,
+        }
+        for u in qs
+    ]
+
+@api.get("/users/", response=List[UserOut])
+def search_users(request, query: str = None):
+    """
+    Busca usuarios por nombre, apellido, email, teléfono o username.
+    Devuelve lista de dicts que Ninja convierte a UserOut.
+    """
+    if not query:
+        return []
+    qs = Usuari.objects.filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(telefon__icontains=query) |
+        Q(username__icontains=query)
+    )[:20]
+    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
+    return [
+        {
+            "id": u.id,
+            "firstName": u.first_name,
+            "lastName": u.last_name,
+            "email": u.email,
+            "phone": u.telefon,
+            "username": u.username,
+        }
+        for u in qs
+    ]
+
+@api.post("/loans/", response=LoanOut)
+def create_loan(request, data: LoanIn):
+    """
+    Crea un objeto Prestec (préstamo) y devuelve LoanOut,
+    devolviendo 404 si no existe usuario o ejemplar,
+    y usando Response para establecer el status.
+    """
+    # 1. Usuario
+    try:
+        user = Usuari.objects.get(pk=data.userId)
+    except Usuari.DoesNotExist:
+        return api.create_response(request, {"detail": "Usuario no encontrado"}, status=404)
+
+    # 2. Ejemplar
+    try:
+        exemplar = Exemplar.objects.get(pk=data.exemplarId)
+    except Exemplar.DoesNotExist:
+        return api.create_response(request, {"detail": "Ejemplar no encontrado"}, status=404)
+
+    # 3. Crear préstamo
+    try:
+        # Marcamos el ejemplar como excluido de préstamo
+        exemplar.exclos_prestec = True
+        exemplar.save()
+
+        # Creamos el Prestec
+        prestec = Prestec.objects.create(usuari=user, exemplar=exemplar)
+        data_out = {
+            "id": prestec.id,
+            "userId": user.id,
+            "exemplarId": exemplar.id,
+            "data_prestec": prestec.data_prestec
+        }
+        return Response(data_out, status=201)
+    except Exception:
+        import traceback; traceback.print_exc()
+        return api.create_response(
+            request,
+            {"detail": "Error interno al crear préstamo"},
+            status=500
+        )
