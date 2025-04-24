@@ -467,7 +467,7 @@ def search_users(request, query: str = None):
         for u in qs
     ]
 
-@api.get("/users/", response=List[UserOut])
+@api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
     """
     Busca usuarios por nombre, apellido, email, teléfono o username.
@@ -495,7 +495,7 @@ def search_users(request, query: str = None):
         for u in qs
     ]
 
-@api.post("/loans/", response=LoanOut)
+@api.post("/loans/", response=LoanOut,auth=AuthBearer())
 def create_loan(request, data: LoanIn):
     # 1. Usuario
     try:
