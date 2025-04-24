@@ -440,7 +440,6 @@ class LoanOut(Schema):
 # Endpoints
 # --------------------
 
-
 @api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
     """
