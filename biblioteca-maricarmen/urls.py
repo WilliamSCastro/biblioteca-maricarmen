@@ -27,6 +27,8 @@ urlpatterns = [
     path('', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
+    path('autocomplete/autor/', views.autocomplete_autor, name='autocomplete_autor'),
+    path('autocomplete/editorial/', views.autocomplete_editorial, name='autocomplete_editorial'),
     # path('probar403/', views.test_403),
 ]
 

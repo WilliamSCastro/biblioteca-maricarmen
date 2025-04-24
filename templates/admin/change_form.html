@@ -236,36 +236,29 @@
         startBarcodeDetection();
     }
 
-    $(function() { 
-
-$("#id_autor").autocomplete({
-    source: function(request, response) {
-        $.ajax({
-            url: "https://openlibrary.org/search/authors.json",  // Cambié la URL para usar la búsqueda de autores de Open Library
-            dataType: "json",
-            data: {
-                q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda por autor
-                limit: 5  // Limitar la cantidad de resultados
-            },
-            success: function(data) {
-                console.log('Resultados de Open Library:', data);  // Debugging: Ver la respuesta completa de Open Library
-                const authors = new Set();
-                if (data.docs) {
-                    data.docs.forEach(item => {
-                        if (item.name) {  // Si encontramos un nombre de autor, lo añadimos
-                            authors.add(item.name);
-                        }
-                    });
+$(function() { 
+  
+    // Autocomplete for authors
+    $("#id_autor").autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: "/autocomplete/autor/",  // URL de la vista de autocompletar para autores
+                dataType: "json",
+                data: {
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
+                },
+                success: function(data) {
+                    console.log('Autores encontrados:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error en la búsqueda de autores:", error);
                 }
-                console.log('Autores encontrados:', authors);  // Debugging: Ver los autores extraídos
-                response(Array.from(authors));  // Enviar los autores encontrados como respuesta
-            },
-            error: function(xhr, status, error) {
-                console.error('Error en la búsqueda de autores:', error);  // Debugging: Ver el error si ocurre
-            }
-        });
-    } // Closing the autocomplete for id_autor
-});
+            });
+        },
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
+    });
 
     $("#id_editorial").autocomplete({
         source: function(request, response) {
@@ -273,7 +266,7 @@ $("#id_autor").autocomplete({
             const yourEmail = "YOUR_EMAIL@example.com"; // PLEASE REPLACE THIS
 
             $.ajax({
-                url: "https://api.openalex.org/autocomplete/publishers", // OpenAlex endpoint for publisher autocomplete
+                url: SEARCH_URL_PUBLISHERS, // OpenAlex endpoint for publisher autocomplete
                 dataType: "json",
                 data: {
                     q: request.term, // OpenAlex uses 'search' parameter
