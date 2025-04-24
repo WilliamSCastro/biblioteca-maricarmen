@@ -262,38 +262,23 @@ $(function() {
 
     $("#id_editorial").autocomplete({
         source: function(request, response) {
-            // It's polite to identify yourself to OpenAlex, replace with your actual email
-            const yourEmail = "YOUR_EMAIL@example.com"; // PLEASE REPLACE THIS
-
             $.ajax({
-                url: SEARCH_URL_PUBLISHERS, // OpenAlex endpoint for publisher autocomplete
+                url: "/autocomplete/editorial/",  // URL de la vista de autocompletar para editoriales
                 dataType: "json",
                 data: {
-                    q: request.term, // OpenAlex uses 'search' parameter
-                    mailto: yourEmail,// Include email for politeness pool
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
                 },
                 success: function(data) {
-                    const finalSuggestions = [];
-                    if (data && data.results) {
-                        // Slice the results array to get max 5 items BEFORE processing
-                        const limitedApiResults = data.results.slice(0, 5);
-
-                        limitedApiResults.forEach(item => {
-                            if (item && item.display_name) {
-                                // Add display name directly to the suggestions list
-                                finalSuggestions.push(item.display_name);
-                            }
-                        });
-                    }
-                    response(finalSuggestions); // Pass the limited list
+                    console.log('Editoriales encontradas:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
                 },
                 error: function(xhr, status, error) {
-                    console.error('Error en la búsqueda de editores (OpenAlex):', error);
-                    response([]); // Return empty array on error
+                    console.error("Error en la búsqueda de editoriales:", error);
                 }
             });
         },
-        minLength: 2 // Minimum characters to trigger autocomplete
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
     });
 });
     </script>
