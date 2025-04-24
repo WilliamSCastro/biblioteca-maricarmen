@@ -415,4 +415,36 @@ def import_users(request, file: UploadedFile = File(...)):
     }
     time.sleep(10)
 
-    return summary
+    return 
+
+# Endpoint per a retornar l'historial de préstecs d'un usuari
+@api.get("/prestecs/{id}", response=List[dict], auth=AuthBearer())
+def get_prestecs(request, id: int):
+    # Verificar que el usuario autenticado coincide con el ID solicitado
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+
+    try:
+        usuari = Usuari.objects.get(id=id)
+    except Usuari.DoesNotExist:
+        return {"detail": "Usuari no trobat"}
+    
+    # Obtenim els préstecs associats a l'usuari
+    prestecs = Prestec.objects.filter(usuari=usuari)
+    
+    # Preparem la resposta
+    resultats = []
+    for prestec in prestecs:
+        resultats.append({
+            "id": prestec.id,
+            "data_prestec": prestec.data_prestec.isoformat() if prestec.data_prestec else None,
+            "data_retorn": prestec.data_retorn.isoformat() if prestec.data_retorn else None,
+            "exemplar_id": prestec.exemplar.id if prestec.exemplar else None,
+            "cataleg_id": prestec.exemplar.cataleg.id if prestec.exemplar and prestec.exemplar.cataleg else None,
+            "cataleg_titol": prestec.exemplar.cataleg.titol if prestec.exemplar and prestec.exemplar.cataleg else None,
+            "exemplar_registre": prestec.exemplar.registre if prestec.exemplar else None,
+            "anotacions": prestec.anotacions
+        })
+    
+    return resultats
