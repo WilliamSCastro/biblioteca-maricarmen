@@ -235,6 +235,74 @@
         // barcode lib
         startBarcodeDetection();
     }
+
+    $(function() { 
+
+$("#id_autor").autocomplete({
+    source: function(request, response) {
+        $.ajax({
+            url: "https://openlibrary.org/search/authors.json",  // Cambié la URL para usar la búsqueda de autores de Open Library
+            dataType: "json",
+            data: {
+                q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda por autor
+                limit: 5  // Limitar la cantidad de resultados
+            },
+            success: function(data) {
+                console.log('Resultados de Open Library:', data);  // Debugging: Ver la respuesta completa de Open Library
+                const authors = new Set();
+                if (data.docs) {
+                    data.docs.forEach(item => {
+                        if (item.name) {  // Si encontramos un nombre de autor, lo añadimos
+                            authors.add(item.name);
+                        }
+                    });
+                }
+                console.log('Autores encontrados:', authors);  // Debugging: Ver los autores extraídos
+                response(Array.from(authors));  // Enviar los autores encontrados como respuesta
+            },
+            error: function(xhr, status, error) {
+                console.error('Error en la búsqueda de autores:', error);  // Debugging: Ver el error si ocurre
+            }
+        });
+    } // Closing the autocomplete for id_autor
+});
+
+    $("#id_editorial").autocomplete({
+        source: function(request, response) {
+            // It's polite to identify yourself to OpenAlex, replace with your actual email
+            const yourEmail = "YOUR_EMAIL@example.com"; // PLEASE REPLACE THIS
+
+            $.ajax({
+                url: "https://api.openalex.org/autocomplete/publishers", // OpenAlex endpoint for publisher autocomplete
+                dataType: "json",
+                data: {
+                    q: request.term, // OpenAlex uses 'search' parameter
+                    mailto: yourEmail,// Include email for politeness pool
+                },
+                success: function(data) {
+                    const finalSuggestions = [];
+                    if (data && data.results) {
+                        // Slice the results array to get max 5 items BEFORE processing
+                        const limitedApiResults = data.results.slice(0, 5);
+
+                        limitedApiResults.forEach(item => {
+                            if (item && item.display_name) {
+                                // Add display name directly to the suggestions list
+                                finalSuggestions.push(item.display_name);
+                            }
+                        });
+                    }
+                    response(finalSuggestions); // Pass the limited list
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error en la búsqueda de editores (OpenAlex):', error);
+                    response([]); // Return empty array on error
+                }
+            });
+        },
+        minLength: 2 // Minimum characters to trigger autocomplete
+    });
+});
     </script>
     <a href="#" onclick="introduccio_manual_isbn()" class="viewlink">Introdueix manualment l'ISBN</a>
     <a href="#" onclick="llegeix_codi_de_barres_amb_camera()" class="viewlink">Llegeix codi de barres de ISBN</a>
