@@ -439,33 +439,7 @@ class LoanOut(Schema):
 # --------------------
 # Endpoints
 # --------------------
-@api.get("/users/", response=List[UserOut])
-def search_users(request, query: str = None):
-    """
-    Busca usuarios por nombre, apellido, email, teléfono o username.
-    Devuelve lista de dicts que Ninja convierte a UserOut.
-    """
-    if not query:
-        return []
-    qs = Usuari.objects.filter(
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(email__icontains=query) |
-        Q(telefon__icontains=query) |
-        Q(username__icontains=query)
-    )[:20]
-    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
-    return [
-        {
-            "id": u.id,
-            "firstName": u.first_name,
-            "lastName": u.last_name,
-            "email": u.email,
-            "phone": u.telefon,
-            "username": u.username,
-        }
-        for u in qs
-    ]
+
 
 @api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
@@ -473,6 +447,9 @@ def search_users(request, query: str = None):
     Busca usuarios por nombre, apellido, email, teléfono o username.
     Devuelve lista de dicts que Ninja convierte a UserOut.
     """
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
     if not query:
         return []
     qs = Usuari.objects.filter(
@@ -497,9 +474,12 @@ def search_users(request, query: str = None):
 
 @api.post("/loans/", response=LoanOut,auth=AuthBearer())
 def create_loan(request, data: LoanIn):
-    # 1. Usuario
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+
     try:
-        user = Usuari.objects.get(pk=data.userId)
+        user2 = Usuari.objects.get(pk=data.userId)
     except Usuari.DoesNotExist:
         return api.create_response({"detail": "Usuario no encontrado"}, status=404)
 
@@ -519,7 +499,7 @@ def create_loan(request, data: LoanIn):
         fecha_devolver = hoy + timedelta(days=7)
 
         prestec = Prestec.objects.create(
-            usuari=user,
+            usuari=user2,
             exemplar=exemplar,
             data_retorn=fecha_devolver  # aquí lo incluimos al crear
         )
