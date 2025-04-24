@@ -553,7 +553,7 @@ def get_prestecs(request, id: int):
         return {"detail": "Usuari no trobat"}
     
     # Obtenim els préstecs associats a l'usuari
-    prestecs = Prestec.objects.filter(usuari=usuari)
+    prestecs = Prestec.objects.filter(usuari=usuari).order_by('-data_retorn')  # Ordenar de forma inversa
     
     # Preparem la resposta
     resultats = []
