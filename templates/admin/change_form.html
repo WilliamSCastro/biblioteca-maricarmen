@@ -235,6 +235,52 @@
         // barcode lib
         startBarcodeDetection();
     }
+
+$(function() { 
+  
+    // Autocomplete for authors
+    $("#id_autor").autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: "/autocomplete/autor/",  // URL de la vista de autocompletar para autores
+                dataType: "json",
+                data: {
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
+                },
+                success: function(data) {
+                    console.log('Autores encontrados:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error en la búsqueda de autores:", error);
+                }
+            });
+        },
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
+    });
+
+    $("#id_editorial").autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: "/autocomplete/editorial/",  // URL de la vista de autocompletar para editoriales
+                dataType: "json",
+                data: {
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
+                },
+                success: function(data) {
+                    console.log('Editoriales encontradas:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error en la búsqueda de editoriales:", error);
+                }
+            });
+        },
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
+    });
+});
     </script>
     <a href="#" onclick="introduccio_manual_isbn()" class="viewlink">Introdueix manualment l'ISBN</a>
     <a href="#" onclick="llegeix_codi_de_barres_amb_camera()" class="viewlink">Llegeix codi de barres de ISBN</a>

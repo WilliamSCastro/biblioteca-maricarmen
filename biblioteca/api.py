@@ -439,12 +439,16 @@ class LoanOut(Schema):
 # --------------------
 # Endpoints
 # --------------------
-@api.get("/users/", response=List[UserOut])
+
+@api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
     """
     Busca usuarios por nombre, apellido, email, teléfono o username.
     Devuelve lista de dicts que Ninja convierte a UserOut.
     """
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
     if not query:
         return []
     qs = Usuari.objects.filter(
@@ -467,39 +471,14 @@ def search_users(request, query: str = None):
         for u in qs
     ]
 
-@api.get("/users/", response=List[UserOut])
-def search_users(request, query: str = None):
-    """
-    Busca usuarios por nombre, apellido, email, teléfono o username.
-    Devuelve lista de dicts que Ninja convierte a UserOut.
-    """
-    if not query:
-        return []
-    qs = Usuari.objects.filter(
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(email__icontains=query) |
-        Q(telefon__icontains=query) |
-        Q(username__icontains=query)
-    )[:20]
-    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
-    return [
-        {
-            "id": u.id,
-            "firstName": u.first_name,
-            "lastName": u.last_name,
-            "email": u.email,
-            "phone": u.telefon,
-            "username": u.username,
-        }
-        for u in qs
-    ]
-
-@api.post("/loans/", response=LoanOut)
+@api.post("/loans/", response=LoanOut,auth=AuthBearer())
 def create_loan(request, data: LoanIn):
-    # 1. Usuario
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+
     try:
-        user = Usuari.objects.get(pk=data.userId)
+        user2 = Usuari.objects.get(pk=data.userId)
     except Usuari.DoesNotExist:
         return api.create_response({"detail": "Usuario no encontrado"}, status=404)
 
@@ -519,7 +498,7 @@ def create_loan(request, data: LoanIn):
         fecha_devolver = hoy + timedelta(days=7)
 
         prestec = Prestec.objects.create(
-            usuari=user,
+            usuari=user2,
             exemplar=exemplar,
             data_retorn=fecha_devolver  # aquí lo incluimos al crear
         )
@@ -538,3 +517,35 @@ def create_loan(request, data: LoanIn):
     except Exception:
         import traceback; traceback.print_exc()
         return api.create_response({"detail": "Error interno al crear préstamo"}, status=500)
+    
+# Endpoint per a retornar l'historial de préstecs d'un usuari
+@api.get("/prestecs/{id}", response=List[dict], auth=AuthBearer())
+def get_prestecs(request, id: int):
+    # Verificar que el usuario autenticado coincide con el ID solicitado
+    user = request.auth  # Usuario autenticado a través del token
+    if not user or user.id != id:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+
+    try:
+        usuari = Usuari.objects.get(id=id)
+    except Usuari.DoesNotExist:
+        return {"detail": "Usuari no trobat"}
+    
+    # Obtenim els préstecs associats a l'usuari
+    prestecs = Prestec.objects.filter(usuari=usuari).order_by('-data_retorn')  # Ordenar de forma inversa
+    
+    # Preparem la resposta
+    resultats = []
+    for prestec in prestecs:
+        resultats.append({
+            "id": prestec.id,
+            "data_prestec": prestec.data_prestec.isoformat() if prestec.data_prestec else None,
+            "data_retorn": prestec.data_retorn.isoformat() if prestec.data_retorn else None,
+            "exemplar_id": prestec.exemplar.id if prestec.exemplar else None,
+            "cataleg_id": prestec.exemplar.cataleg.id if prestec.exemplar and prestec.exemplar.cataleg else None,
+            "cataleg_titol": prestec.exemplar.cataleg.titol if prestec.exemplar and prestec.exemplar.cataleg else None,
+            "exemplar_registre": prestec.exemplar.registre if prestec.exemplar else None,
+            "anotacions": prestec.anotacions
+        })
+    
+    return resultats
