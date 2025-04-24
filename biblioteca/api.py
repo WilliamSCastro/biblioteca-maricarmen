@@ -439,33 +439,6 @@ class LoanOut(Schema):
 # --------------------
 # Endpoints
 # --------------------
-@api.get("/users/", response=List[UserOut])
-def search_users(request, query: str = None):
-    """
-    Busca usuarios por nombre, apellido, email, teléfono o username.
-    Devuelve lista de dicts que Ninja convierte a UserOut.
-    """
-    if not query:
-        return []
-    qs = Usuari.objects.filter(
-        Q(first_name__icontains=query) |
-        Q(last_name__icontains=query) |
-        Q(email__icontains=query) |
-        Q(telefon__icontains=query) |
-        Q(username__icontains=query)
-    )[:20]
-    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
-    return [
-        {
-            "id": u.id,
-            "firstName": u.first_name,
-            "lastName": u.last_name,
-            "email": u.email,
-            "phone": u.telefon,
-            "username": u.username,
-        }
-        for u in qs
-    ]
 
 @api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
