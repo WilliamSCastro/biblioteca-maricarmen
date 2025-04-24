@@ -1,21 +1,24 @@
-from django.contrib.auth import authenticate
-from ninja import NinjaAPI, Schema, File, Form
+from ninja import NinjaAPI, File, UploadedFile,Form, Schema
 from ninja.security import HttpBasicAuth, HttpBearer
-from .models import *
 from typing import List, Optional, Union, Literal
-import secrets
-from django.db.models import Q
-import re
+from django.contrib.auth import authenticate
+from ninja.responses import Response
+
+from datetime import timedelta
+from django.utils import timezone
 from ninja.files import UploadedFile
 from django.http import HttpRequest 
-from django.shortcuts import get_object_or_404
-from .models import Cataleg, Llibre, Revista, CD, DVD, BR, Dispositiu
+from django.db.models import Q
+from ninja.responses import Response
+from datetime import date
+
+from .models import *
+
+import secrets
 import time
 import csv
 import io
-from ninja import NinjaAPI, File, UploadedFile
-from ninja.responses import Response
-from .models import Usuari, Centre, Cicle  # Ajusta la ruta según tu estructura de proyecto
+import re
 
 api = NinjaAPI()
 
@@ -66,7 +69,7 @@ def format_user_data(user: Usuari):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "centre_id": user.centre.id if user.centre else None,
-        "cicle_id": user.cicle.id if user.cicle else None,
+        "cicle_id": user.grup.id if user.grup else None,
         "telefon": user.telefon,
         "imatge_url": user.imatge.url if user.imatge else None,
         "role": role,
@@ -101,7 +104,7 @@ def obtenir_token(request):
     token = request.auth 
     user = get_user_by_token(token)
     if user.is_superuser:
-        role = "Administrador"
+        role = "Bibliotecari"
     elif user.groups.filter(name='Bibliotecari').exists():
         role = "Bibliotecari"
     else:
@@ -115,7 +118,7 @@ def obtenir_token(request):
         "first_name": user.first_name,
         "last_name": user.last_name,
         "centre_id": user.centre.id if user.centre else None,
-        "cicle_id": user.cicle.id if user.cicle else None,
+        "cicle_id": user.grup.id if user.grup else None,
         "telefon": user.telefon,
         "imatge_url": user.imatge.url if user.imatge else None, 
         "role": role,
@@ -137,6 +140,7 @@ def get_current_user(request):
         return user_data
     else:
         return api.create_response(request, {"detail": "Authentication failed"}, status=401)
+
 class CatalegOut(Schema):
     id: int
     titol: Optional[str]                # Si puede venir None
@@ -149,7 +153,6 @@ def buscar_cataleg(request, q: str):
             Q(titol__icontains=q) | Q(autor__icontains=q)
         ).values("id", "titol", "autor")
     )
-   
 
     # Reemplazamos autor = None por texto
     for r in resultats:
@@ -167,8 +170,6 @@ def update_profile(request: HttpRequest,                  # Access request for a
     avatar: Optional[UploadedFile] = File(None) # Use File(...) to get the uploaded file, make it optional
 ):
     user = request.auth  # Get authenticated user from token
-
-
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
     
@@ -243,8 +244,8 @@ def get_cataleg(request, id: int):
             "editorial": llibre.editorial,
             "colleccio": llibre.colleccio,
             "lloc": llibre.lloc,
-            "pais": llibre.pais.id if llibre.pais else None,
-            "llengua": llibre.llengua.id if llibre.llengua else None,
+            "pais": llibre.pais.nom if llibre.pais else None,
+            "llengua": llibre.llengua.nom if llibre.llengua else None,
             "numero": llibre.numero,
             "volums": llibre.volums,
             "pagines": llibre.pagines,
@@ -259,8 +260,8 @@ def get_cataleg(request, id: int):
             "ISSN": revista.ISSN,
             "editorial": revista.editorial,
             "lloc": revista.lloc,
-            "pais": revista.pais.id if revista.pais else None,
-            "llengua": revista.llengua.id if revista.llengua else None,
+            "pais": revista.pais.nom if revista.pais else None,
+            "llengua": revista.llengua.nom if revista.llengua else None,
             "numero": revista.numero,
             "volums": revista.volums,
             "pagines": revista.pagines
@@ -383,9 +384,9 @@ def import_users(request, file: UploadedFile = File(...)):
             continue
 
         try:
-            cicle_obj = Cicle.objects.get(pk=grup_val)
-        except Cicle.DoesNotExist:
-            errors.append(f"Fila {index}: Cicle (grup) amb ID '{grup_val}' no trobat.")
+            cicle_obj = Grup.objects.get(pk=grup_val)
+        except Grup.DoesNotExist:
+            errors.append(f"Fila {index}: Grup (grup) amb ID '{grup_val}' no trobat.")
             continue
 
         username = email
@@ -398,7 +399,7 @@ def import_users(request, file: UploadedFile = File(...)):
                 "last_name": last_name,
                 "telefon": telefon,
                 "centre": centre_obj,
-                "cicle": cicle_obj,
+                "grup": cicle_obj,
             }
         )
 
@@ -413,10 +414,131 @@ def import_users(request, file: UploadedFile = File(...)):
         "errors": errors,
         "message": f"Importació completada. Usuaris importats: {imported_count}. Errors: {len(errors)}"
     }
-    time.sleep(10)
 
-    return 
+    return summary
 
+
+class UserOut(Schema):
+    id: int
+    firstName: str
+    lastName: str
+    email: str
+    phone: Optional[str] = None
+    username: str
+
+class LoanIn(Schema):
+    userId: int
+    exemplarId: int
+
+class LoanOut(Schema):
+    id: int
+    userId: int
+    exemplarId: int
+    data_prestec: date
+
+# --------------------
+# Endpoints
+# --------------------
+@api.get("/users/", response=List[UserOut])
+def search_users(request, query: str = None):
+    """
+    Busca usuarios por nombre, apellido, email, teléfono o username.
+    Devuelve lista de dicts que Ninja convierte a UserOut.
+    """
+    if not query:
+        return []
+    qs = Usuari.objects.filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(telefon__icontains=query) |
+        Q(username__icontains=query)
+    )[:20]
+    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
+    return [
+        {
+            "id": u.id,
+            "firstName": u.first_name,
+            "lastName": u.last_name,
+            "email": u.email,
+            "phone": u.telefon,
+            "username": u.username,
+        }
+        for u in qs
+    ]
+
+@api.get("/users/", response=List[UserOut])
+def search_users(request, query: str = None):
+    """
+    Busca usuarios por nombre, apellido, email, teléfono o username.
+    Devuelve lista de dicts que Ninja convierte a UserOut.
+    """
+    if not query:
+        return []
+    qs = Usuari.objects.filter(
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query) |
+        Q(email__icontains=query) |
+        Q(telefon__icontains=query) |
+        Q(username__icontains=query)
+    )[:20]
+    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
+    return [
+        {
+            "id": u.id,
+            "firstName": u.first_name,
+            "lastName": u.last_name,
+            "email": u.email,
+            "phone": u.telefon,
+            "username": u.username,
+        }
+        for u in qs
+    ]
+
+@api.post("/loans/", response=LoanOut)
+def create_loan(request, data: LoanIn):
+    # 1. Usuario
+    try:
+        user = Usuari.objects.get(pk=data.userId)
+    except Usuari.DoesNotExist:
+        return api.create_response({"detail": "Usuario no encontrado"}, status=404)
+
+    # 2. Ejemplar
+    try:
+        exemplar = Exemplar.objects.get(pk=data.exemplarId)
+    except Exemplar.DoesNotExist:
+        return api.create_response({"detail": "Ejemplar no encontrado"}, status=404)
+
+    # 3. Crear préstamo en un solo paso
+    try:
+        # Marcamos el ejemplar como excluido de préstamo
+        exemplar.exclos_prestec = True
+        exemplar.save(update_fields=["exclos_prestec"])
+
+        hoy = timezone.now().date()
+        fecha_devolver = hoy + timedelta(days=7)
+
+        prestec = Prestec.objects.create(
+            usuari=user,
+            exemplar=exemplar,
+            data_retorn=fecha_devolver  # aquí lo incluimos al crear
+        )
+
+        return Response(
+            {
+                "id": prestec.id,
+                "userId": user.id,
+                "exemplarId": exemplar.id,
+                "data_prestec": prestec.data_prestec,  # sigue viniendo por auto_now_add
+                "data_retorn": prestec.data_retorn,
+            },
+            status=201
+        )
+
+    except Exception:
+        import traceback; traceback.print_exc()
+        return api.create_response({"detail": "Error interno al crear préstamo"}, status=500)
+    
 # Endpoint per a retornar l'historial de préstecs d'un usuari
 @api.get("/prestecs/{id}", response=List[dict], auth=AuthBearer())
 def get_prestecs(request, id: int):
