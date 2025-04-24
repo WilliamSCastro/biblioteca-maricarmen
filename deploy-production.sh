@@ -10,7 +10,7 @@ echo "Ejecutando deploy-react.sh..."
 ./deploy-react.sh
 
 echo "Recolectando archivos estáticos..."
-./manage.py collectstatic --noinput
+./manage.py collectstatic
 
 echo "Reiniciando Apache..."
 sudo systemctl restart apache2

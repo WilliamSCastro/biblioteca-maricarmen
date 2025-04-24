@@ -33,7 +33,8 @@ urlpatterns = [
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-urlpatterns += [re_path(r'^.*$', views.custom_404_view)]
+#urlpatterns += [re_path(r'^.*$', views.custom_404_view)]
 
 
 handler403 = 'biblioteca.views.custom_403_view'
+handler404 = 'biblioteca.views.custom_404_view'
