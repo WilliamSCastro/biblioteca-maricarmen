@@ -41,7 +41,25 @@
     
     <script type="text/javascript">
     function introduccio_manual_isbn() {
-        var isbn = prompt("Introdueix el ISBN");
+
+        while (true) {
+        isbn = prompt("Introdueix el ISBN");
+
+        // Si l'usuari prem Cancel·lar, surt de la funció
+        if (isbn === null) {
+            return;
+        }
+
+        // Elimina espais i comprova longitud
+        isbn = isbn.trim();
+
+        if (!isbn.match(/^\d{13}$/)) {
+            alert("L'ISBN ha de tenir exactament 13 dígits.");
+        } else {
+            break;
+        }
+    }
+
         carrega_info_isbn_de_open_library(isbn);
     }
 
