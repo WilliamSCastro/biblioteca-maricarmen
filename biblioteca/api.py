@@ -440,16 +440,18 @@ class LoanOut(Schema):
 # Endpoints
 # --------------------
 
+# 1) Buscar usuarios
 @api.get("/users/", response=List[UserOut], auth=AuthBearer())
 def search_users(request, query: str = None):
-    """
-    Busca usuarios por nombre, apellido, email, teléfono o username.
-    Devuelve lista de dicts que Ninja convierte a UserOut.
-    """
-    user = request.auth  # Usuario autenticado a través del token
-    if not user or user.id != id:
+    user = request.auth
+    # 401 si no está autenticado
+    if not user:
+        return api.create_response(request, {"detail": "Authentication required"}, status=401)
+    # 403 si no es staff/bibliotecario
+    if not user.is_staff:
         return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
-    if not query:
+    # Si no hay query devolvemos lista vacía
+    if not query or not query.strip():
         return []
     qs = Usuari.objects.filter(
         Q(first_name__icontains=query) |
@@ -458,7 +460,6 @@ def search_users(request, query: str = None):
         Q(telefon__icontains=query) |
         Q(username__icontains=query)
     )[:20]
-    # Devolver dicts en lugar de instancias Pydantic para evitar error de BaseModel
     return [
         {
             "id": u.id,
@@ -471,53 +472,53 @@ def search_users(request, query: str = None):
         for u in qs
     ]
 
-@api.post("/loans/", response=LoanOut,auth=AuthBearer())
+
+# 2) Crear préstamo
+@api.post("/loans/", response=LoanOut, auth=AuthBearer())
 def create_loan(request, data: LoanIn):
-    user = request.auth  # Usuario autenticado a través del token
-    if not user or user.id != id:
-        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+    user = request.auth
+    # 401 si no está autenticado
+    if not user:
+        return api.create_response(request, {"detail": "Authentication required"}, status=401)
+    # 403 si no es staff/bibliotecario
+    if not user.is_staff:
+        return api.create_response(request, {"detail": "No tens permís per crear préstecs."}, status=403)
 
+    # Validar usuario destino
     try:
-        user2 = Usuari.objects.get(pk=data.userId)
+        usuario_destino = Usuari.objects.get(pk=data.userId)
     except Usuari.DoesNotExist:
-        return api.create_response({"detail": "Usuario no encontrado"}, status=404)
+        return api.create_response(request, {"detail": "Usuario no encontrado"}, status=404)
 
-    # 2. Ejemplar
+    # Validar ejemplar
     try:
         exemplar = Exemplar.objects.get(pk=data.exemplarId)
     except Exemplar.DoesNotExist:
-        return api.create_response({"detail": "Ejemplar no encontrado"}, status=404)
+        return api.create_response(request, {"detail": "Ejemplar no encontrado"}, status=404)
+    if exemplar.exclos_prestec:
+        return api.create_response(request, {"detail": "El ejemplar ya está excluido de préstamo"}, status=400)
 
-    # 3. Crear préstamo en un solo paso
-    try:
-        # Marcamos el ejemplar como excluido de préstamo
-        exemplar.exclos_prestec = True
-        exemplar.save(update_fields=["exclos_prestec"])
+    # Crear préstamo
+    exemplar.exclos_prestec = True
+    exemplar.save(update_fields=["exclos_prestec"])
+    fecha_devolver = timezone.now().date() + timedelta(days=7)
+    prestec = Prestec.objects.create(
+        usuari=usuario_destino,
+        exemplar=exemplar,
+        data_retorn=fecha_devolver
+    )
 
-        hoy = timezone.now().date()
-        fecha_devolver = hoy + timedelta(days=7)
-
-        prestec = Prestec.objects.create(
-            usuari=user2,
-            exemplar=exemplar,
-            data_retorn=fecha_devolver  # aquí lo incluimos al crear
-        )
-
-        return Response(
-            {
-                "id": prestec.id,
-                "userId": user.id,
-                "exemplarId": exemplar.id,
-                "data_prestec": prestec.data_prestec,  # sigue viniendo por auto_now_add
-                "data_retorn": prestec.data_retorn,
-            },
-            status=201
-        )
-
-    except Exception:
-        import traceback; traceback.print_exc()
-        return api.create_response({"detail": "Error interno al crear préstamo"}, status=500)
-    
+    # 201 con los datos del préstamo
+    return Response(
+        {
+            "id": prestec.id,
+            "userId": usuario_destino.id,
+            "exemplarId": exemplar.id,
+            "data_prestec": prestec.data_prestec,
+            "data_retorn": prestec.data_retorn,
+        },
+        status=201
+    )
 # Endpoint per a retornar l'historial de préstecs d'un usuari
 @api.get("/prestecs/{id}", response=List[dict], auth=AuthBearer())
 def get_prestecs(request, id: int):
