@@ -52,15 +52,19 @@
           dataType: "json",   // necessitem això pq ens retorni un objecte JSON
         }).done(function (msg) {
             var llibre = msg["ISBN:"+isbn];
+
             if( !llibre ) {
-                console.log("No s'ha trobat l'ISBN");
-                alert("No s'ha trobat l'ISBN");
+                console.log("No s'ha trobat l'ISBN a Open Library. Provant amb Google Books...");
+                alert("No s'ha trobat l'ISBN a Open Library. Provant amb Google Books...");
+                carrega_info_isbn_de_google(isbn);
                 return;
             }
+
             console.log(msg);
             if( !llibre.details ) {
-                console.log("No s'ha trobat detalls del llibre");
-                alert("No s'ha trobat detalls del llibre");
+                console.log("No s'ha trobat detalls del llibre. Provant amb Google Books...");
+                alert("No s'ha trobat detalls del llibre. Provant amb Google Books...");
+                carrega_info_isbn_de_google(isbn);
                 return;
             }
 
@@ -89,7 +93,57 @@
             }*/
 
         }).fail(function () {
-            alert("Error en carregar la informació de l'ISBN");
+            alert("Error en carregar la informació de l'ISBN des d'Open Library. Provant amb Google Books...");
+            carrega_info_isbn_de_google(isbn);
+        });
+    }
+
+    function carrega_info_isbn_de_google(isbn) {
+        $.ajax({
+          method: "GET",
+          url: "https://www.googleapis.com/books/v1/volumes?q=isbn:" + isbn,
+          dataType: "json",   // necessitem això pq ens retorni un objecte JSON
+        }).done(function (msg) {
+
+            if (!msg || msg.totalItems === 0) {
+                console.log("No s'ha trobat l'ISBN a Google Books");
+                alert("No s'ha trobat l'ISBN a Google Books");
+                return;
+            }
+
+            const llibre = msg.items[0].volumeInfo;
+            console.log(llibre)
+            $('#id_ISBN').val(isbn);
+            if (llibre.infoLink) $('#id_info_url').val(llibre.infoLink);
+            if (llibre.previewLink) $('#id_preview_url').val(llibre.previewLink);
+            if (llibre.imageLinks && llibre.imageLinks.thumbnail) $('#id_thumbnail_url').val(llibre.imageLinks.thumbnail);
+
+            if (llibre.title) $('#id_titol').val(llibre.title);
+            if (llibre.subtitle) $('#id_titol').val(llibre.title + ": " + llibre.subtitle);
+
+            if (llibre.pageCount) $('#id_pagines').val(llibre.pageCount);
+            if (llibre.publisher) $('#id_editorial').val(llibre.publisher);
+            if (llibre.authors && llibre.authors.length > 0) $('#id_autor').val(llibre.authors[0]);
+
+            if (llibre.publishedDate) {
+                // publicat com a "1988" o "1988-03-20", cal adaptar-lo a DD/MM/YYYY si es pot
+                let parts = llibre.publishedDate.split("-");
+                let data2 = "";
+                if (parts.length === 3) {
+                    data2 = parts[2] + "/" + parts[1] + "/" + parts[0];
+                } else if (parts.length === 2) {
+                    data2 = "01/" + parts[1] + "/" + parts[0];
+                } else {
+                    data2 = "01/01/" + parts[0];
+                }
+                $('#id_data_edicio').val(data2);
+            }
+
+            if (llibre.description) $('#id_resum').val(llibre.description);
+           
+        }).fail(function (e) {
+            alert("Error en carregar la informació de l'ISBN des de Google Books");
+            console.log("Error" + e);
         });
     }
 
@@ -181,6 +235,52 @@
         // barcode lib
         startBarcodeDetection();
     }
+
+$(function() { 
+  
+    // Autocomplete for authors
+    $("#id_autor").autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: "/autocomplete/autor/",  // URL de la vista de autocompletar para autores
+                dataType: "json",
+                data: {
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
+                },
+                success: function(data) {
+                    console.log('Autores encontrados:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error en la búsqueda de autores:", error);
+                }
+            });
+        },
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
+    });
+
+    $("#id_editorial").autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: "/autocomplete/editorial/",  // URL de la vista de autocompletar para editoriales
+                dataType: "json",
+                data: {
+                    q: request.term,  // Usamos el parámetro 'q' para realizar la búsqueda
+                    limit: 5          // Limitar los resultados a 5
+                },
+                success: function(data) {
+                    console.log('Editoriales encontradas:', data);  // Debugging: Ver la respuesta completa
+                    response(data);  // Enviar los resultados directamente al autocompletar
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error en la búsqueda de editoriales:", error);
+                }
+            });
+        },
+        minLength: 2  // Mínimo de caracteres para activar el autocompletar
+    });
+});
     </script>
     <a href="#" onclick="introduccio_manual_isbn()" class="viewlink">Introdueix manualment l'ISBN</a>
     <a href="#" onclick="llegeix_codi_de_barres_amb_camera()" class="viewlink">Llegeix codi de barres de ISBN</a>
