@@ -104,7 +104,7 @@ def obtenir_token(request):
     token = request.auth 
     user = get_user_by_token(token)
     if user.is_superuser:
-        role = "Bibliotecari"
+        role = "Administrador"
     elif user.groups.filter(name='Bibliotecari').exists():
         role = "Bibliotecari"
     else:
