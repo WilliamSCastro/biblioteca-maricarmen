@@ -30,7 +30,6 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*",])
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 #CSRF_TRUSTED_ORIGINS = ["https://biblio.ieti.site"]
 
-
 # Application definition
 AUTH_USER_MODEL = 'biblioteca.Usuari'
 
@@ -76,14 +75,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'biblioteca-maricarmen.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
     'default': env.db(),
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -103,7 +100,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
@@ -114,7 +110,6 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/

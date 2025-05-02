@@ -11,6 +11,10 @@ from django.http import HttpRequest
 from django.db.models import Q
 from ninja.responses import Response
 from datetime import date
+import requests
+import jwt
+
+import secrets
 
 from .models import *
 
@@ -550,3 +554,90 @@ def get_prestecs(request, id: int):
         })
     
     return resultats
+
+
+def verify_google_token(id_token: str):
+    res = requests.get(f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}')
+    if res.status_code != 200:
+        raise ValueError("Token de Google inválido")
+    return res.json()
+
+# Configuración
+MICROSOFT_JWKS_URL = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
+CLIENT_ID = "80ce59e2-3a83-4650-b920-d1f2d194d3e7"
+
+
+def verify_microsoft_token(id_token: str):
+    try:
+        # 1. Crear cliente JWK desde Microsoft
+        jwk_client = jwt.PyJWKClient(MICROSOFT_JWKS_URL)
+
+        # 2. Obtener la clave pública a partir del token
+        signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
+
+        # 3. Decodificar y validar el token
+        payload = jwt.decode(
+            id_token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=CLIENT_ID,
+            options={"verify_iss": False}
+        )
+        print("✅ Token verificado con éxito. Payload:", payload)
+        return payload
+
+    except Exception as e:
+        print("❌ Error durante la verificación del token:", str(e))
+        raise
+
+
+class SocialLoginSchema(Schema):
+    token: str
+    provider: str  # "google" o "microsoft"
+
+
+@api.post("/social-login/")
+def social_login(request, data: SocialLoginSchema):
+    print(data)
+    try:
+        if data.provider == "google":
+            user_info = verify_google_token(data.token)
+            email = user_info["email"]
+            name = user_info.get("name", email.split("@")[0])
+
+        elif data.provider == "microsoft":
+            user_info = verify_microsoft_token(data.token)
+            email = user_info["email"]
+            name = user_info.get("name", email.split("@")[0])
+
+        else:
+            return api.create_response(request, {"error": "Proveïdor no suportat"}, status=400)
+
+        # Buscar o crear usuario
+        user, created = Usuari.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email,
+                "first_name": name,
+                "last_name": ""
+            }
+        )
+
+        # Generar token propio
+        token = secrets.token_hex(16)
+        user.auth_token = token
+        user.save()
+
+        return {
+            "token": token,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+            }
+        }
+
+    except Exception as e:
+        return api.create_response(request, {"error": str(e)}, status=400)
