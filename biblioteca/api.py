@@ -16,8 +16,6 @@ import jwt
 
 import secrets
 
-from ninja import Schema
-from .models import Usuari 
 from .models import *
 
 import secrets
@@ -151,53 +149,21 @@ class CatalegOut(Schema):
     id: int
     titol: Optional[str]                # Si puede venir None
     autor: Optional[str]
-    disponibles: int
-    prestats: int
-    exclos_prestec: int
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
-    try:
-        from django.utils import timezone
-
-        token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
-        user = get_user_by_token(token) if token else None
-        user_centre = user.centre if user and user.centre else None
-
-        resultats = Cataleg.objects.filter(
+    resultats = list(
+        Cataleg.objects.filter(
             Q(titol__icontains=q) | Q(autor__icontains=q)
-        )
+        ).values("id", "titol", "autor")
+    )
 
-        resposta = []
+    # Reemplazamos autor = None por texto
+    for r in resultats:
+        if r["autor"] is None:
+            r["autor"] = "No se conoce el autor"  # o "No se coneix l'autor"
 
-        for cat in resultats:
-            exemplars_qs = Exemplar.objects.filter(cataleg=cat)
-            if user_centre:
-                exemplars_qs = exemplars_qs.filter(centre=user_centre)
-
-            prestats_ids = Prestec.objects.filter(
-                exemplar__in=exemplars_qs,
-                data_retorn__gte=timezone.now().date()
-            ).values_list("exemplar_id", flat=True)
-
-            exclos_count = exemplars_qs.filter(exclos_prestec=True).count()
-            prestats_count = exemplars_qs.filter(id__in=prestats_ids).count()
-            disponibles_count = exemplars_qs.exclude(id__in=prestats_ids).filter(exclos_prestec=False).count()
-
-            resposta.append(CatalegOut(
-                id=cat.id,
-                titol=cat.titol,
-                autor=cat.autor or "No se coneix l'autor",
-                disponibles=disponibles_count,
-                prestats=prestats_count,
-                exclos_prestec=exclos_count
-            ))
-
-        return resposta
-
-    except Exception as e:
-        print("❌ Error en buscar_cataleg:", str(e))
-        return []
+    return [CatalegOut(**r) for r in resultats]
 class ProfileUpdatePayload(Schema):
     email: str 
     telefon: str = None # Ensure names match frontend 'name' attributes
@@ -537,7 +503,8 @@ def create_loan(request, data: LoanIn):
         return api.create_response(request, {"detail": "El ejemplar ya está excluido de préstamo"}, status=400)
 
     # Crear préstamo
-    
+    exemplar.exclos_prestec = True
+    exemplar.save(update_fields=["exclos_prestec"])
     fecha_devolver = timezone.now().date() + timedelta(days=7)
     prestec = Prestec.objects.create(
         usuari=usuario_destino,
