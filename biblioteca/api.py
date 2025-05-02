@@ -152,18 +152,47 @@ class CatalegOut(Schema):
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
-    resultats = list(
-        Cataleg.objects.filter(
+    try:
+        from django.utils import timezone
+
+        token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+        user = get_user_by_token(token) if token else None
+        user_centre = user.centre if user and user.centre else None
+
+        resultats = Cataleg.objects.filter(
             Q(titol__icontains=q) | Q(autor__icontains=q)
-        ).values("id", "titol", "autor")
-    )
+        )
 
-    # Reemplazamos autor = None por texto
-    for r in resultats:
-        if r["autor"] is None:
-            r["autor"] = "No se conoce el autor"  # o "No se coneix l'autor"
+        resposta = []
 
-    return [CatalegOut(**r) for r in resultats]
+        for cat in resultats:
+            exemplars_qs = Exemplar.objects.filter(cataleg=cat)
+            if user_centre:
+                exemplars_qs = exemplars_qs.filter(centre=user_centre)
+
+            prestats_ids = Prestec.objects.filter(
+                exemplar__in=exemplars_qs,
+                data_retorn__gte=timezone.now().date()
+            ).values_list("exemplar_id", flat=True)
+
+            exclos_count = exemplars_qs.filter(exclos_prestec=True).count()
+            prestats_count = exemplars_qs.filter(id__in=prestats_ids).count()
+            disponibles_count = exemplars_qs.exclude(id__in=prestats_ids).filter(exclos_prestec=False).count()
+
+            resposta.append(CatalegOut(
+                id=cat.id,
+                titol=cat.titol,
+                autor=cat.autor or "No se coneix l'autor",
+                disponibles=disponibles_count,
+                prestats=prestats_count,
+                exclos_prestec=exclos_count
+            ))
+
+        return resposta
+
+    except Exception as e:
+        print("❌ Error en buscar_cataleg:", str(e))
+        return []
 class ProfileUpdatePayload(Schema):
     email: str 
     telefon: str = None # Ensure names match frontend 'name' attributes
