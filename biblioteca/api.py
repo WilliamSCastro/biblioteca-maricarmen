@@ -13,7 +13,7 @@ from ninja.responses import Response
 from datetime import date
 import requests
 import jwt
-from jwt.algorithms import RSAAlgorithm
+
 import secrets
 
 from ninja import Schema
@@ -602,42 +602,27 @@ CLIENT_ID = "80ce59e2-3a83-4650-b920-d1f2d194d3e7"
 
 def verify_microsoft_token(id_token: str):
     try:
-        # 1. Obtener el encabezado no verificado
-        unverified_header = jwt.get_unverified_header(id_token)
-        kid = unverified_header.get("kid")
-        print("Encabezado no verificado:", unverified_header)
+        # 1. Crear cliente JWK desde Microsoft
+        jwk_client = jwt.PyJWKClient(MICROSOFT_JWKS_URL)
 
-        # 2. Obtener JWKS desde Microsoft
-        jwks_response = requests.get(MICROSOFT_JWKS_URL)
-        jwks = jwks_response.json().get("keys")
-        print(f"JWKS obtenido: {len(jwks)} claves")
+        # 2. Obtener la clave pública a partir del token
+        signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
 
-        # 3. Buscar la clave pública que coincida con el 'kid'
-        public_key = None
-        for key in jwks:
-            if key.get("kid") == kid:
-                public_key = RSAAlgorithm.from_jwk(key)
-                break
-        if not public_key:
-            raise ValueError("Clave pública de Microsoft no encontrada")
-
-        # 4. Imprimir la clave pública para depuración
-        print("Clave pública obtenida:", public_key)
-
-        # 5. Decodificar y validar el token
+        # 3. Decodificar y validar el token
         payload = jwt.decode(
             id_token,
-            public_key,
+            signing_key,
             algorithms=["RS256"],
             audience=CLIENT_ID,
-            options={"verify_iss": False}  # ✅ Desactiva validación exacta del issuer
+            options={"verify_iss": False}
         )
-        print("Payload decodificado:", payload)
+        print("✅ Token verificado con éxito. Payload:", payload)
         return payload
 
     except Exception as e:
         print("❌ Error durante la verificación del token:", str(e))
         raise
+
 
 class SocialLoginSchema(Schema):
     token: str

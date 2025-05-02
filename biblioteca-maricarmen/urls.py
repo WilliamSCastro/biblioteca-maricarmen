@@ -1,19 +1,3 @@
-"""
-URL configuration for biblio_maricarmen project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, re_path
 from biblioteca import views
@@ -23,18 +7,24 @@ from django.conf.urls.static import static
 from django.conf.urls import handler403
 from biblioteca.api import api
 
+from django.views.generic import TemplateView
+
 urlpatterns = [
-    path('', views.index),
     path('admin/', admin.site.urls),
     path("api/", api.urls),
     path('autocomplete/autor/', views.autocomplete_autor, name='autocomplete_autor'),
     path('autocomplete/editorial/', views.autocomplete_editorial, name='autocomplete_editorial'),
-    # path('probar403/', views.test_403),
+
+    # Este path solo se usa si quieres servir index.html desde templates
+    path('', views.index),
+]
+
+# Este patrón captura TODAS las rutas no coincidentes (excepto /api/) y devuelve el index.html
+urlpatterns += [
+    re_path(r'^(?!api/).*$', TemplateView.as_view(template_name="index.html")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-#urlpatterns += [re_path(r'^.*$', views.custom_404_view)]
-
 
 handler403 = 'biblioteca.views.custom_403_view'
 handler404 = 'biblioteca.views.custom_404_view'
