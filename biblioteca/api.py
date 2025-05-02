@@ -149,6 +149,9 @@ class CatalegOut(Schema):
     id: int
     titol: Optional[str]                # Si puede venir None
     autor: Optional[str]
+    disponibles: int
+    prestats: int
+    exclos_prestec: int
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
