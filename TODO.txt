@@ -1,0 +1,20 @@
+TODO
+
+Tasques a desenvolupar per diferents equips.
+
+Frontend:
+  - Cerca al catàleg
+  - Reserva online
+  - Social Auth
+  - Registre (social)
+
+Admin Panel:
+  - Social Auth
+  - Préstecs
+
+Backend:
+  - 
+
+Testing:
+  - Selenium tests per a totes les funcionalitats
+
