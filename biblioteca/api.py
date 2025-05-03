@@ -13,7 +13,6 @@ from ninja.responses import Response
 from datetime import date
 import requests
 import jwt
-
 import secrets
 
 from .models import *
@@ -156,7 +155,7 @@ class CatalegOut(Schema):
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
     try:
-        from django.utils import timezone
+       
 
         token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
         user = get_user_by_token(token) if token else None
@@ -190,6 +189,7 @@ def buscar_cataleg(request, q: str):
                 prestats=prestats_count,
                 exclos_prestec=exclos_count
             ))
+
 
         return resposta
 
