@@ -170,7 +170,7 @@ def buscar_cataleg(request, q: str):
 
         resposta = []
 
-        for cat in resultats:
+     for cat in resultats:
             exemplars_qs = Exemplar.objects.filter(cataleg=cat)
             if user_centre:
                 exemplars_qs = exemplars_qs.filter(centre=user_centre)
@@ -192,6 +192,7 @@ def buscar_cataleg(request, q: str):
                 prestats=prestats_count,
                 exclos_prestec=exclos_count
             ))
+
 
         return resposta
 
@@ -601,9 +602,7 @@ CLIENT_ID = "80ce59e2-3a83-4650-b920-d1f2d194d3e7"
 
 
 def verify_microsoft_token(id_token: str):
-    import jwt
-    print("✅ JWT importado desde:", jwt.__file__)
-    print("✅ Tiene PyJWKClient:", hasattr(jwt, "PyJWKClient"))
+    
     jwk_client = PyJWKClient(MICROSOFT_JWKS_URL)
     signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
 
