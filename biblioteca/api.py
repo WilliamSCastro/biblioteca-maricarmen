@@ -644,14 +644,17 @@ def social_login(request, data: SocialLoginSchema):
 
         else:
             return api.create_response(request, {"error": "Proveïdor no suportat"}, status=400)
-
+        
+       
+          
         # Buscar o crear usuario
         user, created = Usuari.objects.get_or_create(
             email=email,
             defaults={
                 "username": email,
                 "first_name": name,
-                "last_name": ""
+                "last_name": "",
+                
             }
         )
 
@@ -668,6 +671,8 @@ def social_login(request, data: SocialLoginSchema):
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
+                "role" : "Usuari"
+
             }
         }
 
