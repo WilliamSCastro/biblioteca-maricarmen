@@ -30,6 +30,7 @@ urlpatterns = [
     path('autocomplete/autor/', views.autocomplete_autor, name='autocomplete_autor'),
     path('autocomplete/editorial/', views.autocomplete_editorial, name='autocomplete_editorial'),
     # path('probar403/', views.test_403),
+    
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
