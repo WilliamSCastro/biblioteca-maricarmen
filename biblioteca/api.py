@@ -11,6 +11,9 @@ from django.http import HttpRequest
 from django.db.models import Q
 from ninja.responses import Response
 from datetime import date
+import requests
+import jwt
+import secrets
 
 from .models import *
 
@@ -145,21 +148,76 @@ class CatalegOut(Schema):
     id: int
     titol: Optional[str]                # Si puede venir None
     autor: Optional[str]
+    disponibles: int
+    prestats: int
+    exclos_prestec: int
+    typeCat : str
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
-    resultats = list(
-        Cataleg.objects.filter(
+    try:
+       
+
+        token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+        user = get_user_by_token(token) if token else None
+        user_centre = user.centre if user and user.centre else None
+        
+        resultats = Cataleg.objects.filter(
             Q(titol__icontains=q) | Q(autor__icontains=q)
-        ).values("id", "titol", "autor")
-    )
+        )
 
-    # Reemplazamos autor = None por texto
-    for r in resultats:
-        if r["autor"] is None:
-            r["autor"] = "No se conoce el autor"  # o "No se coneix l'autor"
+        resposta = []
 
-    return [CatalegOut(**r) for r in resultats]
+        for cat in resultats:
+            exemplars_qs = Exemplar.objects.filter(cataleg=cat)
+            if user_centre:
+                exemplars_qs = exemplars_qs.filter(centre=user_centre)
+
+            prestats_ids = Prestec.objects.filter(
+                exemplar__in=exemplars_qs,
+                data_retorn__gte=timezone.now().date()
+            ).values_list("exemplar_id", flat=True)
+
+            exclos_count = exemplars_qs.filter(exclos_prestec=True).count()
+            prestats_count = exemplars_qs.filter(id__in=prestats_ids).count()
+            disponibles_count = exemplars_qs.exclude(id__in=prestats_ids).filter(exclos_prestec=False).count()
+
+            
+
+            try:
+                cataleg = Cataleg.objects.get(id=cat.id)
+            except Cataleg.DoesNotExist:
+                return {"detail": "Catàleg no trobat"}
+            
+            
+
+            if hasattr(cataleg, 'llibre'):
+                tipo = "Llibre"
+            elif hasattr(cataleg, 'revista'):
+                tipo = "Revista"
+            elif hasattr(cataleg, 'cd'):
+                tipo = "CD"
+            elif hasattr(cataleg, 'dvd'):
+                tipo = "DVD"
+            elif hasattr(cataleg, 'br'):
+                tipo = "BR"
+            elif hasattr(cataleg, 'dispositiu'):
+                tipo = "Dispositiu"
+
+            resposta.append(CatalegOut(
+                    id=cat.id,
+                    titol=cat.titol,
+                    autor=cat.autor or "No se coneix l'autor",
+                    disponibles=disponibles_count,
+                    prestats=prestats_count,
+                    exclos_prestec=exclos_count,
+                    typeCat = tipo
+                ))
+        return resposta
+
+    except Exception as e:
+        print("❌ Error en buscar_cataleg:", str(e))
+        return []
 class ProfileUpdatePayload(Schema):
     email: str 
     telefon: str = None # Ensure names match frontend 'name' attributes
@@ -646,3 +704,93 @@ def get_exemplars_centre(request):
 
     print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
     return resultats
+def verify_google_token(id_token: str):
+    res = requests.get(f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}')
+    if res.status_code != 200:
+        raise ValueError("Token de Google inválido")
+    return res.json()
+
+# Configuración
+MICROSOFT_JWKS_URL = "https://login.microsoftonline.com/common/discovery/v2.0/keys"
+CLIENT_ID = "80ce59e2-3a83-4650-b920-d1f2d194d3e7"
+
+
+def verify_microsoft_token(id_token: str):
+    try:
+        # 1. Crear cliente JWK desde Microsoft
+        jwk_client = jwt.PyJWKClient(MICROSOFT_JWKS_URL)
+
+        # 2. Obtener la clave pública a partir del token
+        signing_key = jwk_client.get_signing_key_from_jwt(id_token).key
+
+        # 3. Decodificar y validar el token
+        payload = jwt.decode(
+            id_token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=CLIENT_ID,
+            options={"verify_iss": False}
+        )
+        print("✅ Token verificado con éxito. Payload:", payload)
+        return payload
+
+    except Exception as e:
+        print("❌ Error durante la verificación del token:", str(e))
+        raise
+
+
+class SocialLoginSchema(Schema):
+    token: str
+    provider: str  # "google" o "microsoft"
+
+
+@api.post("/social-login/")
+def social_login(request, data: SocialLoginSchema):
+    print(data)
+    try:
+        if data.provider == "google":
+            user_info = verify_google_token(data.token)
+            email = user_info["email"]
+            name = user_info.get("name", email.split("@")[0])
+
+        elif data.provider == "microsoft":
+            user_info = verify_microsoft_token(data.token)
+            email = user_info["email"]
+            name = user_info.get("name", email.split("@")[0])
+
+        else:
+            return api.create_response(request, {"error": "Proveïdor no suportat"}, status=400)
+        
+       
+          
+        # Buscar o crear usuario
+        user, created = Usuari.objects.get_or_create(
+            email=email,
+            defaults={
+                "username": email,
+                "first_name": name,
+                "last_name": "",
+                
+            }
+        )
+
+        # Generar token propio
+        token = secrets.token_hex(16)
+        user.auth_token = token
+        user.save()
+
+        return {
+            "token": token,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role" : "Usuari"
+
+            }
+        }
+
+    except Exception as e:
+        return api.create_response(request, {"error": str(e)}, status=400)

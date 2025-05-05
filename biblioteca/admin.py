@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import *
@@ -25,12 +26,20 @@ class LlenguaAdmin(admin.ModelAdmin):
 class CatalegAdmin(admin.ModelAdmin):
     list_display = ['titol', 'autor', 'CDU', 'signatura']
     search_fields = ['titol', 'autor']
-
+# Esto es una guarrada; marca las nuevas entradas en el inline como "cambiadas" para engañar a django y que se guarden
+class MarkNewInstancesAsChangedModelForm(forms.ModelForm):
+    def has_changed(self):
+        """Returns True for new instances, calls super() for ones that exist in db.
+        Prevents forms with defaults being recognized as empty/unchanged."""
+        return not self.instance.pk or super().has_changed()
 
 class ExemplarsInline(admin.TabularInline):
     model = Exemplar
     extra = 0
-
+    form = MarkNewInstancesAsChangedModelForm
+    # readonly_fields = ['registre']  # Mostrar 'registre' como solo lectura
+    # fields = ['exclos_prestec', 'baixa', 'centre']  # Campos visibles en el inline
+    
     def get_readonly_fields(self, request, obj=None):
         # Hacer que el campo 'centre' sea de solo lectura solo para el grupo 'Bibliotecari'
         if request.user.groups.filter(name="Bibliotecari").exists():
@@ -52,9 +61,7 @@ class ExemplarsInline(admin.TabularInline):
         # Si no es superuser ni bibliotecari, devolvemos un queryset vacío
         return qs.none()
 
-    def save_new_objects(self, request, form, change):
-        # Esta función existe en versiones antiguas. Para modernizar, mejor usamos `save_formset` en el ModelAdmin
-        return super().save_new_objects(request, form, change)
+
     
 @admin.register(Llibre)
 class LlibreAdmin(admin.ModelAdmin):
@@ -62,14 +69,16 @@ class LlibreAdmin(admin.ModelAdmin):
     list_display = ['titol', 'autor', 'editorial', 'ISBN']
     search_fields = ['titol', 'autor', 'ISBN']
     filter_horizontal = ('tags',)
-    
+
     def save_formset(self, request, form, formset, change):
+        # Guardar los objetos relacionados del inline
         instances = formset.save(commit=False)
         for obj in instances:
+            # Si el usuario pertenece al grupo 'Bibliotecari', asignar su 'centre'
             if request.user.groups.filter(name="Bibliotecari").exists():
                 obj.centre = request.user.centre
-            obj.save()
-        formset.save_m2m()
+            obj.save()  # Guardar el objeto
+        formset.save_m2m()  # Guardar relaciones many-to-many si las hay
 
 
 @admin.register(Revista)
@@ -106,7 +115,8 @@ class DispositiuAdmin(admin.ModelAdmin):
 @admin.register(Exemplar)
 class ExemplarAdmin(admin.ModelAdmin):
     list_display = ['cataleg', 'registre', 'centre', 'exclos_prestec', 'baixa']
-    search_fields = ['cataleg__titol', 'registre']
+    search_fields = ['cataleg__titol']
+    readonly_fields = ['registre']  # Campo de solo lectura
 
     def get_fields(self, request, obj=None):
         fields = super().get_fields(request, obj)
@@ -166,6 +176,22 @@ class PrestecAdmin(admin.ModelAdmin):
     list_display = ['usuari', 'exemplar', 'data_prestec', 'data_retorn']
     readonly_fields = ['data_prestec']
     search_fields = ['usuari__username', 'exemplar__registre']
+
+    def get_queryset(self, request):
+        # Obtenemos el queryset base
+        qs = super().get_queryset(request)
+
+        # Si el usuario es superuser, devolvemos todos los préstamos
+        if request.user.is_superuser:
+            return qs
+
+        # Si el usuario pertenece al grupo 'Bibliotecari', filtramos por su 'centre'
+        if request.user.groups.filter(name="Bibliotecari").exists():
+            return qs.filter(exemplar__centre=request.user.centre)
+
+        # Si no es superuser ni bibliotecari, devolvemos un queryset vacío
+        return qs.none()
+    
 
 @admin.register(Peticio)
 class PeticioAdmin(admin.ModelAdmin):
