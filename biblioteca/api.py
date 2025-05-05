@@ -151,6 +151,7 @@ class CatalegOut(Schema):
     disponibles: int
     prestats: int
     exclos_prestec: int
+    typeCat : str
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
@@ -160,7 +161,7 @@ def buscar_cataleg(request, q: str):
         token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
         user = get_user_by_token(token) if token else None
         user_centre = user.centre if user and user.centre else None
-
+        
         resultats = Cataleg.objects.filter(
             Q(titol__icontains=q) | Q(autor__icontains=q)
         )
@@ -181,16 +182,37 @@ def buscar_cataleg(request, q: str):
             prestats_count = exemplars_qs.filter(id__in=prestats_ids).count()
             disponibles_count = exemplars_qs.exclude(id__in=prestats_ids).filter(exclos_prestec=False).count()
 
+            
+
+            try:
+                cataleg = Cataleg.objects.get(id=cat.id)
+            except Cataleg.DoesNotExist:
+                return {"detail": "Catàleg no trobat"}
+            
+            
+
+            if hasattr(cataleg, 'llibre'):
+                tipo = "Llibre"
+            elif hasattr(cataleg, 'revista'):
+                tipo = "Revista"
+            elif hasattr(cataleg, 'cd'):
+                tipo = "CD"
+            elif hasattr(cataleg, 'dvd'):
+                tipo = "DVD"
+            elif hasattr(cataleg, 'br'):
+                tipo = "BR"
+            elif hasattr(cataleg, 'dispositiu'):
+                tipo = "Dispositiu"
+
             resposta.append(CatalegOut(
-                id=cat.id,
-                titol=cat.titol,
-                autor=cat.autor or "No se coneix l'autor",
-                disponibles=disponibles_count,
-                prestats=prestats_count,
-                exclos_prestec=exclos_count
-            ))
-
-
+                    id=cat.id,
+                    titol=cat.titol,
+                    autor=cat.autor or "No se coneix l'autor",
+                    disponibles=disponibles_count,
+                    prestats=prestats_count,
+                    exclos_prestec=exclos_count,
+                    typeCat = tipo
+                ))
         return resposta
 
     except Exception as e:
