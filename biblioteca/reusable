@@ -21,6 +21,20 @@ class Cataleg(models.Model):
     def __str__(self):
         return self.titol
     
+class Llibre(Cataleg):
+    ISBN = models.CharField(max_length=13, blank=True, null=True)
+    editorial = models.CharField(max_length=100, blank=True, null=True)
+    colleccio = models.CharField(max_length=100, blank=True, null=True)
+    lloc = models.CharField(max_length=100, blank=True, null=True)
+    pais = models.ForeignKey(Pais, on_delete=models.SET_NULL, blank=True, null=True)
+    llengua = models.ForeignKey(Llengua, on_delete=models.SET_NULL, blank=True, null=True)
+    numero = models.IntegerField(null=True,blank=True)
+    volums = models.IntegerField(null=True,blank=True)
+    pagines = models.IntegerField(blank=True,null=True)
+    info_url = models.CharField(max_length=200,blank=True,null=True)
+    preview_url = models.CharField(max_length=200,blank=True,null=True)
+    thumbnail_url = models.CharField(max_length=200,blank=True,null=True)
+
 class Exemplar(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     registre = models.CharField(max_length=100, null=True, blank=True)

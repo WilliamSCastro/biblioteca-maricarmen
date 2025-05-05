@@ -611,13 +611,11 @@ def get_prestecs(request, id: int):
     return resultats
 
 
-# Endpoint per retornar els exemplars
 @api.get("/exemplars", response=List[dict], auth=AuthBearer())
 def get_exemplars_centre(request):
-    user = request.auth  # Usuari autenticat
+    user = request.auth
     if not user:
         return api.create_response(request, {"detail": "Authentication required"}, status=401)
-    # 403 si no es staff/bibliotecario
     if not user.is_staff:
         return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
 
@@ -633,17 +631,24 @@ def get_exemplars_centre(request):
     for exemplar in exemplars:
         registre = exemplar.registre or ""
         cataleg = exemplar.cataleg
+        llibre = None
+        editorial = ""
+
         print(f"\n[DEBUG] Procesando exemplar: {registre}")
+
+        # Intentamos obtener Llibre solo una vez
+        try:
+            llibre = Llibre.objects.get(pk=cataleg.pk)
+            editorial = (llibre.editorial or "").lower()
+            print(f"[DEBUG] → És llibre, editorial='{editorial}'")
+        except Llibre.DoesNotExist:
+            print("[DEBUG] → No és un llibre.")
 
         # Filtro por título/autor/editorial
         if title_author_editorial:
             titol = (cataleg.titol or "").lower()
             autor = (cataleg.autor or "").lower()
-            editorial = ""
-
-            if isinstance(cataleg, Llibre):
-                editorial = (cataleg.editorial or "").lower()
-                print(f"[DEBUG] → És llibre, editorial='{editorial}'")
+            print(f"[DEBUG] → Títol='{titol}', autor='{autor}', editorial='{editorial}'")
 
             if (title_author_editorial not in titol and
                 title_author_editorial not in autor and
@@ -653,7 +658,7 @@ def get_exemplars_centre(request):
             else:
                 print("[DEBUG] → Coincideix title/author/editorial.")
 
-        # Usamos split para extraer año y número
+        # Processem el registre
         parts = registre.split("-")
         if len(parts) != 3:
             print("[DEBUG] → Formato de registre incorrecto")
@@ -661,15 +666,14 @@ def get_exemplars_centre(request):
 
         _, year_part, number_part = parts
 
-        # Filtro por año
-        if year_filter and year_part != year_filter:
-            print(f"[DEBUG] → Any no coincideix: {year_part} ≠ {year_filter}")
-            continue
-        else:
-            if year_filter:
-                print(f"[DEBUG] → Coincideix any: {year_part}")
+        # # Filtro por año
+        # if year_filter and year_part != year_filter:
+        #     print(f"[DEBUG] → Any no coincideix: {year_part} ≠ {year_filter}")
+        #     continue
+        # elif year_filter:
+        #     print(f"[DEBUG] → Coincideix any: {year_part}")
 
-        # Filtro por número de registre
+        # Filtro por número
         try:
             num_registre = int(number_part)
             print(f"[DEBUG] → Número extret: {num_registre}")
@@ -693,10 +697,11 @@ def get_exemplars_centre(request):
             except ValueError:
                 print(f"[DEBUG] → Valor màxim invàlid: '{range_max}'")
 
-        # Si ha passat tots els filtres, afegim
+        # Afegim al resultat
         resultats.append({
             "titol": cataleg.titol if cataleg else None,
             "autor": cataleg.autor if cataleg else None,
+            "editorial": llibre.editorial if llibre else None,
             "CDU": cataleg.CDU if cataleg else None,
             "registre": exemplar.registre,
             "centre_nom": exemplar.centre.nom if exemplar.centre else None,
@@ -704,6 +709,8 @@ def get_exemplars_centre(request):
 
     print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
     return resultats
+
+
 def verify_google_token(id_token: str):
     res = requests.get(f'https://oauth2.googleapis.com/tokeninfo?id_token={id_token}')
     if res.status_code != 200:
