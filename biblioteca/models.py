@@ -114,7 +114,7 @@ class Exemplar(models.Model):
 
     def __str__(self):
         return f"REG:{self.registre} - {self.cataleg.titol}"
-
+    
 class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     imatge = models.ImageField(upload_to='imatges/')
