@@ -620,9 +620,10 @@ def get_exemplars_centre(request):
         return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
 
     title_author_editorial = request.GET.get("titleAuthorEditorial", "").strip().lower()
-    year_filter = request.GET.get("yearOfExemplar", "").strip()
+    # year_filter = request.GET.get("yearOfExemplar", "").strip()
     range_min = request.GET.get("rangeMinNumExemplar", "").strip()
     range_max = request.GET.get("rangeMaxNumExemplar", "").strip()
+    exact_registre = request.GET.get("exact_registration", "").strip()
 
     exemplars = Exemplar.objects.filter(centre=user.centre).select_related("cataleg", "centre")
     print(f"[DEBUG] Total d'exemplars abans de filtrar: {exemplars.count()}")
@@ -657,6 +658,13 @@ def get_exemplars_centre(request):
                 continue
             else:
                 print("[DEBUG] → Coincideix title/author/editorial.")
+
+        if exact_registre:
+            if registre != exact_registre:
+                print(f"[DEBUG] → Registre no coincideix: {registre} ≠ {exact_registre}")
+                continue
+            else:
+                print(f"[DEBUG] → Coincideix registre: {registre} = {exact_registre}")
 
         # Processem el registre
         parts = registre.split("-")
@@ -708,6 +716,7 @@ def get_exemplars_centre(request):
         })
 
     print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
+    time.sleep(5)  # Simul
     return resultats
 
 
