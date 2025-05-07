@@ -627,7 +627,7 @@ def get_exemplars_centre(request):
     range_max = request.GET.get("rangeMaxNumExemplar", "").strip()
     exact_registre = request.GET.get("exact_registration", "").strip()
 
-    exemplars = Exemplar.objects.filter(centre=user.centre).select_related("cataleg", "centre")
+    exemplars = Exemplar.objects.filter(centre=user.centre).select_related("cataleg", "centre").order_by("-id")
     print(f"[DEBUG] Total d'exemplars abans de filtrar: {exemplars.count()}")
 
     resultats = []
@@ -638,6 +638,18 @@ def get_exemplars_centre(request):
         editorial = ""
 
         print(f"\n[DEBUG] Procesando exemplar: {registre}")
+
+        
+        if exact_registre:
+            print(registre)
+            print(exact_registre)
+            if registre != exact_registre:
+            # if exact_registre not in registre:
+                print(f"[DEBUG] → Registre no coincideix: {registre} ≠ {exact_registre}")
+                continue
+            else:
+                print(f"[DEBUG] → Coincideix registre: {registre} = {exact_registre}")
+
 
         # Intentamos obtener Llibre solo una vez
         try:
@@ -661,13 +673,7 @@ def get_exemplars_centre(request):
             else:
                 print("[DEBUG] → Coincideix title/author/editorial.")
 
-        if exact_registre:
-            if registre != exact_registre:
-                print(f"[DEBUG] → Registre no coincideix: {registre} ≠ {exact_registre}")
-                continue
-            else:
-                print(f"[DEBUG] → Coincideix registre: {registre} = {exact_registre}")
-
+        
         # Processem el registre
         parts = registre.split("-")
         if len(parts) != 3:
@@ -718,7 +724,6 @@ def get_exemplars_centre(request):
         })
 
     print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
-    time.sleep(5)  # Simul
     return resultats
 
 
