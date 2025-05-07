@@ -91,7 +91,7 @@ class Dispositiu(Cataleg):
 
 class Exemplar(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
-    registre = models.CharField(max_length=100, null=True, blank=True)
+    registre = models.CharField(max_length=20, unique=True, editable=False)  # Único y no editable
     exclos_prestec = models.BooleanField(default=False) 
     baixa = models.BooleanField(default=False)
     centre = models.ForeignKey(Centre, on_delete=models.CASCADE)
@@ -101,8 +101,20 @@ class Exemplar(models.Model):
             models.UniqueConstraint(fields=['cataleg', 'id'], name='unique_cataleg_exemplar')
         ]
     
+    def save(self, *args, **kwargs):
+        if not self.registre:  # Solo generar si no existe
+            year = now().year
+            last_exemplar = Exemplar.objects.filter(registre__startswith=f"EX-{year}").order_by('id').last()
+            if last_exemplar:
+                last_number = int(last_exemplar.registre.split('-')[-1])
+            else:
+                last_number = 0
+            self.registre = f"EX-{year}-{last_number + 1:06d}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"REG:{self.registre} - {self.cataleg.titol}"
+    
 class Imatge(models.Model):
     cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
     imatge = models.ImageField(upload_to='imatges/')
