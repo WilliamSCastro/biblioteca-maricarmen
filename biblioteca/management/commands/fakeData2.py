@@ -66,6 +66,7 @@ class Command(BaseCommand):
                         pais=choice(paisos),
                         llengua=choice(llengues),
                         numero=randint(1, 100),
+                        CDU = randint(1, 100),
                         volums=randint(1, 3),
                         pagines=randint(100, 500),
                         signatura=f"{randint(100,999)}.{chr(randint(65,90))}",
