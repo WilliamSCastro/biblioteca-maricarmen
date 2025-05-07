@@ -107,7 +107,7 @@ def obtenir_token(request):
     token = request.auth 
     user = get_user_by_token(token)
     if user.is_superuser:
-        role = "Bibliotecari"
+        role = "Administrador"
     elif user.groups.filter(name='Bibliotecari').exists():
         role = "Bibliotecari"
     else:
@@ -151,6 +151,7 @@ class CatalegOut(Schema):
     disponibles: int
     prestats: int
     exclos_prestec: int
+    typeCat : str
 
 @api.get("/buscar/", response=List[CatalegOut])
 def buscar_cataleg(request, q: str):
@@ -160,7 +161,7 @@ def buscar_cataleg(request, q: str):
         token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
         user = get_user_by_token(token) if token else None
         user_centre = user.centre if user and user.centre else None
-
+        
         resultats = Cataleg.objects.filter(
             Q(titol__icontains=q) | Q(autor__icontains=q)
         )
@@ -181,16 +182,37 @@ def buscar_cataleg(request, q: str):
             prestats_count = exemplars_qs.filter(id__in=prestats_ids).count()
             disponibles_count = exemplars_qs.exclude(id__in=prestats_ids).filter(exclos_prestec=False).count()
 
+            
+
+            try:
+                cataleg = Cataleg.objects.get(id=cat.id)
+            except Cataleg.DoesNotExist:
+                return {"detail": "Catàleg no trobat"}
+            
+            
+
+            if hasattr(cataleg, 'llibre'):
+                tipo = "Llibre"
+            elif hasattr(cataleg, 'revista'):
+                tipo = "Revista"
+            elif hasattr(cataleg, 'cd'):
+                tipo = "CD"
+            elif hasattr(cataleg, 'dvd'):
+                tipo = "DVD"
+            elif hasattr(cataleg, 'br'):
+                tipo = "BR"
+            elif hasattr(cataleg, 'dispositiu'):
+                tipo = "Dispositiu"
+
             resposta.append(CatalegOut(
-                id=cat.id,
-                titol=cat.titol,
-                autor=cat.autor or "No se coneix l'autor",
-                disponibles=disponibles_count,
-                prestats=prestats_count,
-                exclos_prestec=exclos_count
-            ))
-
-
+                    id=cat.id,
+                    titol=cat.titol,
+                    autor=cat.autor or "No se coneix l'autor",
+                    disponibles=disponibles_count,
+                    prestats=prestats_count,
+                    exclos_prestec=exclos_count,
+                    typeCat = tipo
+                ))
         return resposta
 
     except Exception as e:
@@ -555,6 +577,7 @@ def create_loan(request, data: LoanIn):
         },
         status=201
     )
+
 # Endpoint per a retornar l'historial de préstecs d'un usuari
 @api.get("/prestecs/{id}", response=List[dict], auth=AuthBearer())
 def get_prestecs(request, id: int):
@@ -585,6 +608,115 @@ def get_prestecs(request, id: int):
             "anotacions": prestec.anotacions
         })
     
+    return resultats
+
+
+@api.get("/exemplars", response=List[dict], auth=AuthBearer())
+def get_exemplars_centre(request):
+    user = request.auth
+    if not user:
+        return api.create_response(request, {"detail": "Authentication required"}, status=401)
+    if not user.is_staff:
+        return api.create_response(request, {"detail": "No tens permís per accedir a aquest recurs."}, status=403)
+
+    title_author_editorial = request.GET.get("titleAuthorEditorial", "").strip().lower()
+    # year_filter = request.GET.get("yearOfExemplar", "").strip()
+    range_min = request.GET.get("rangeMinNumExemplar", "").strip()
+    range_max = request.GET.get("rangeMaxNumExemplar", "").strip()
+    exact_registre = request.GET.get("exact_registration", "").strip()
+
+    exemplars = Exemplar.objects.filter(centre=user.centre).select_related("cataleg", "centre")
+    print(f"[DEBUG] Total d'exemplars abans de filtrar: {exemplars.count()}")
+
+    resultats = []
+    for exemplar in exemplars:
+        registre = exemplar.registre or ""
+        cataleg = exemplar.cataleg
+        llibre = None
+        editorial = ""
+
+        print(f"\n[DEBUG] Procesando exemplar: {registre}")
+
+        # Intentamos obtener Llibre solo una vez
+        try:
+            llibre = Llibre.objects.get(pk=cataleg.pk)
+            editorial = (llibre.editorial or "").lower()
+            print(f"[DEBUG] → És llibre, editorial='{editorial}'")
+        except Llibre.DoesNotExist:
+            print("[DEBUG] → No és un llibre.")
+
+        # Filtro por título/autor/editorial
+        if title_author_editorial:
+            titol = (cataleg.titol or "").lower()
+            autor = (cataleg.autor or "").lower()
+            print(f"[DEBUG] → Títol='{titol}', autor='{autor}', editorial='{editorial}'")
+
+            if (title_author_editorial not in titol and
+                title_author_editorial not in autor and
+                title_author_editorial not in editorial):
+                print("[DEBUG] → NO coincideix amb titol, autor ni editorial.")
+                continue
+            else:
+                print("[DEBUG] → Coincideix title/author/editorial.")
+
+        if exact_registre:
+            if registre != exact_registre:
+                print(f"[DEBUG] → Registre no coincideix: {registre} ≠ {exact_registre}")
+                continue
+            else:
+                print(f"[DEBUG] → Coincideix registre: {registre} = {exact_registre}")
+
+        # Processem el registre
+        parts = registre.split("-")
+        if len(parts) != 3:
+            print("[DEBUG] → Formato de registre incorrecto")
+            continue
+
+        _, year_part, number_part = parts
+
+        # # Filtro por año
+        # if year_filter and year_part != year_filter:
+        #     print(f"[DEBUG] → Any no coincideix: {year_part} ≠ {year_filter}")
+        #     continue
+        # elif year_filter:
+        #     print(f"[DEBUG] → Coincideix any: {year_part}")
+
+        # Filtro por número
+        try:
+            num_registre = int(number_part)
+            print(f"[DEBUG] → Número extret: {num_registre}")
+        except ValueError:
+            print("[DEBUG] → Número del registre no és enter vàlid")
+            continue
+
+        if range_min:
+            try:
+                if num_registre < int(range_min):
+                    print(f"[DEBUG] → Filtrat per mínim: {num_registre} < {range_min}")
+                    continue
+            except ValueError:
+                print(f"[DEBUG] → Valor mínim invàlid: '{range_min}'")
+
+        if range_max:
+            try:
+                if num_registre > int(range_max):
+                    print(f"[DEBUG] → Filtrat per màxim: {num_registre} > {range_max}")
+                    continue
+            except ValueError:
+                print(f"[DEBUG] → Valor màxim invàlid: '{range_max}'")
+
+        # Afegim al resultat
+        resultats.append({
+            "titol": cataleg.titol if cataleg else None,
+            "autor": cataleg.autor if cataleg else None,
+            "editorial": llibre.editorial if llibre else None,
+            "CDU": cataleg.CDU if cataleg else None,
+            "registre": exemplar.registre,
+            "centre_nom": exemplar.centre.nom if exemplar.centre else None,
+        })
+
+    print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
+    time.sleep(5)  # Simul
     return resultats
 
 

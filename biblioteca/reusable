@@ -1,0 +1,114 @@
+class Usuari(AbstractUser):
+    centre = models.ForeignKey(Centre,on_delete=models.SET_NULL,null=True,blank=True)
+    grup = models.ForeignKey(Grup,on_delete=models.SET_NULL,null=True,blank=True)
+    telefon =  models.CharField(max_length=9,validators=[RegexValidator(regex=r'^\d+$', message="Només es permeten números.")],blank=True,null=True)
+
+    imatge = models.ImageField(upload_to='usuaris/',null=True,blank=True)
+    auth_token = models.CharField(max_length=32,blank=True,null=True)
+
+
+class Cataleg(models.Model):
+    titol = models.CharField(max_length=200)
+    titol_original = models.CharField(max_length=200, blank=True, null=True)
+    autor = models.CharField(max_length=200, blank=True, null=True)
+    CDU = models.CharField(max_length=40, blank=True, null=True)
+    signatura = models.CharField(max_length=40, blank=True, null=True)
+    data_edicio = models.DateField(null=True,blank=True)
+    resum = models.TextField(blank=True,null=True)
+    anotacions = models.TextField(blank=True,null=True)
+    mides = models.CharField(max_length=100,null=True,blank=True)
+    tags = models.ManyToManyField(Categoria,blank=True)
+    def __str__(self):
+        return self.titol
+    
+class Llibre(Cataleg):
+    ISBN = models.CharField(max_length=13, blank=True, null=True)
+    editorial = models.CharField(max_length=100, blank=True, null=True)
+    colleccio = models.CharField(max_length=100, blank=True, null=True)
+    lloc = models.CharField(max_length=100, blank=True, null=True)
+    pais = models.ForeignKey(Pais, on_delete=models.SET_NULL, blank=True, null=True)
+    llengua = models.ForeignKey(Llengua, on_delete=models.SET_NULL, blank=True, null=True)
+    numero = models.IntegerField(null=True,blank=True)
+    volums = models.IntegerField(null=True,blank=True)
+    pagines = models.IntegerField(blank=True,null=True)
+    info_url = models.CharField(max_length=200,blank=True,null=True)
+    preview_url = models.CharField(max_length=200,blank=True,null=True)
+    thumbnail_url = models.CharField(max_length=200,blank=True,null=True)
+
+class Exemplar(models.Model):
+    cataleg = models.ForeignKey(Cataleg, on_delete=models.CASCADE)
+    registre = models.CharField(max_length=100, null=True, blank=True)
+    exclos_prestec = models.BooleanField(default=False) 
+    baixa = models.BooleanField(default=False)
+    centre = models.ForeignKey(Centre, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['cataleg', 'id'], name='unique_cataleg_exemplar')
+        ]
+    
+    def __str__(self):
+        return f"REG:{self.registre} - {self.cataleg.titol}"
+    
+
+     const handlePrint = async () => {
+    const pdf = new jsPDF("portrait", "mm", "a4");
+    const LIBRARY_NAME = "Biblioteca del Centre";
+  
+    const labelWidth = 90;  // dues columnes = 180mm, marge restant
+    const labelHeight = 40; // alçada de cada etiqueta
+    const marginX = 10;
+    const marginY = 10;
+  
+    let x = marginX;
+    let y = marginY;
+  
+    for (let i = 0; i < exemplarToPrint.length; i++) {
+      const { registre, CDU } = exemplarToPrint[i];
+
+      console.log("DADES PASSADES A PDF:");
+      console.log("registre:", registre);
+      console.log("CDU:", CDU);
+      const ean = registre.replace(/\D/g, "").padStart(13, "0").slice(0, 13);
+  
+      try {
+        // Genera el codi de barres en canvas
+        const canvas = document.createElement("canvas");
+        bwipjs.toCanvas(canvas, {
+          bcid: "ean13",
+          text: ean,
+          scale: 2,
+          height: 10,
+          includetext: false,
+        });
+  
+        const imgData = canvas.toDataURL("image/png");
+  
+        // Dibuixa l’etiqueta
+        pdf.setFontSize(10);
+        pdf.text(LIBRARY_NAME, x + 2, y + 6);
+        pdf.text(`Registre: ${registre}`, x + 2, y + 12);
+        pdf.text(`CDU: ${CDU || "-"}`, x + 2, y + 18);
+        pdf.addImage(imgData, "PNG", x + 2, y + 20, 60, 15); // Barcode
+  
+        // Canvi de columna/fila
+        if (x + labelWidth * 2 + marginX > 210) {
+          x = marginX;
+          y += labelHeight;
+        } else {
+          x += labelWidth;
+        }
+  
+        // Si passem el final de pàgina, afegim pàgina nova
+        if (y + labelHeight > 297 - marginY) {
+          pdf.addPage();
+          x = marginX;
+          y = marginY;
+        }
+      } catch (err) {
+        console.error("Error generant codi EAN13:", err);
+      }
+    }
+  
+    pdf.save("etiquetes.pdf");
+  };

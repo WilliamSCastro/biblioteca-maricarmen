@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 from faker import Faker
 from random import randint, choice
+import random
 from datetime import timedelta, datetime
 from biblioteca.models import (
     Llibre, Revista, CD, DVD, BR, Dispositiu, Exemplar,
@@ -26,13 +27,21 @@ class Command(BaseCommand):
         def assign_tags(instance):
             instance.save()
             instance.tags.set([choice(categories)])
+        def generar_registre(anyo=None):
+            # Año actual si no se especifica
+            if not anyo:
+                anyo = datetime.now().year
+
+            numero = random.randint(0, 999999)
+            numero_formateado = f"{numero:06d}"  # siempre 6 dígitos con ceros delante
+            return f"EX-{anyo}-{numero_formateado}"
 
         def create_exemplars(obj):
             for _ in range(randint(2, 5)):
                 try:
                     Exemplar.objects.get_or_create(
                         cataleg=obj,
-                        registre=fake.uuid4(),
+                        registre = generar_registre(),
                         centre=choice(centres)
                     )
                 except IntegrityError:
