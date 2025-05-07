@@ -41,10 +41,12 @@ class ExemplarsInline(admin.TabularInline):
     # fields = ['exclos_prestec', 'baixa', 'centre']  # Campos visibles en el inline
     
     def get_readonly_fields(self, request, obj=None):
+        readonly = list(super().get_readonly_fields(request, obj))
+        readonly.append('registre')  # Añadir 'registre' a los campos de solo lectura
         # Hacer que el campo 'centre' sea de solo lectura solo para el grupo 'Bibliotecari'
         if request.user.groups.filter(name="Bibliotecari").exists():
-            return ('centre',)
-        return ()
+            readonly.append('centre')
+        return readonly
 
     def get_queryset(self, request):
         # Obtenemos el queryset base
@@ -78,7 +80,9 @@ class LlibreAdmin(admin.ModelAdmin):
             if request.user.groups.filter(name="Bibliotecari").exists():
                 obj.centre = request.user.centre
             obj.save()  # Guardar el objeto
+        # Manejar la eliminación de objetos marcados para eliminar
         formset.save_m2m()  # Guardar relaciones many-to-many si las hay
+        formset.save()  # Esto asegura que los objetos marcados para eliminar se eliminen correctamente
 
 
 @admin.register(Revista)

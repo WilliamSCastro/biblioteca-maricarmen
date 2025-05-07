@@ -98,7 +98,7 @@ class Exemplar(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['cataleg', 'id'], name='unique_cataleg_exemplar')
+            models.UniqueConstraint(fields=['cataleg', 'registre'], name='unique_cataleg_exemplar')
         ]
     
     def save(self, *args, **kwargs):
