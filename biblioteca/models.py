@@ -98,13 +98,13 @@ class Exemplar(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['cataleg', 'registre'], name='unique_cataleg_exemplar')
+            models.UniqueConstraint(fields=['cataleg', 'id'], name='unique_cataleg_exemplar')
         ]
     
     def save(self, *args, **kwargs):
         if not self.registre:  # Solo generar si no existe
             year = now().year
-            last_exemplar = Exemplar.objects.filter(registre__startswith=f"EX-{year}").order_by('registre').last()
+            last_exemplar = Exemplar.objects.filter(registre__startswith=f"EX-{year}").order_by('id').last()
             if last_exemplar:
                 last_number = int(last_exemplar.registre.split('-')[-1])
             else:
