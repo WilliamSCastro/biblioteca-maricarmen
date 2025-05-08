@@ -627,7 +627,7 @@ def get_exemplars_centre(request):
     range_max = request.GET.get("rangeMaxNumExemplar", "").strip()
     exact_registre = request.GET.get("exact_registration", "").strip()
 
-    exemplars = Exemplar.objects.filter(centre=user.centre).select_related("cataleg", "centre").order_by("-id")
+    exemplars = Exemplar.objects.filter(centre=user.centre, baixa=False).select_related("cataleg", "centre").order_by("-id")
     print(f"[DEBUG] Total d'exemplars abans de filtrar: {exemplars.count()}")
 
     resultats = []
