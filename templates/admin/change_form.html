@@ -72,15 +72,15 @@
             var llibre = msg["ISBN:"+isbn];
 
             if( !llibre ) {
-                console.log("No s'ha trobat l'ISBN a Open Library. Provant amb Google Books...");
+               
                 alert("No s'ha trobat l'ISBN a Open Library. Provant amb Google Books...");
                 carrega_info_isbn_de_google(isbn);
                 return;
             }
 
-            console.log(msg);
+      
             if( !llibre.details ) {
-                console.log("No s'ha trobat detalls del llibre. Provant amb Google Books...");
+           
                 alert("No s'ha trobat detalls del llibre. Provant amb Google Books...");
                 carrega_info_isbn_de_google(isbn);
                 return;
@@ -124,13 +124,13 @@
         }).done(function (msg) {
 
             if (!msg || msg.totalItems === 0) {
-                console.log("No s'ha trobat l'ISBN a Google Books");
+            
                 alert("No s'ha trobat l'ISBN a Google Books");
                 return;
             }
 
             const llibre = msg.items[0].volumeInfo;
-            console.log(llibre)
+          
             $('#id_ISBN').val(isbn);
             if (llibre.infoLink) $('#id_info_url').val(llibre.infoLink);
             if (llibre.previewLink) $('#id_preview_url').val(llibre.previewLink);
@@ -161,7 +161,7 @@
            
         }).fail(function (e) {
             alert("Error en carregar la informació de l'ISBN des de Google Books");
-            console.log("Error" + e);
+         
         });
     }
 
@@ -267,7 +267,7 @@ $(function() {
                     limit: 5          // Limitar los resultados a 5
                 },
                 success: function(data) {
-                    console.log('Autores encontrados:', data);  // Debugging: Ver la respuesta completa
+           
                     response(data);  // Enviar los resultados directamente al autocompletar
                 },
                 error: function(xhr, status, error) {
@@ -288,7 +288,7 @@ $(function() {
                     limit: 5          // Limitar los resultados a 5
                 },
                 success: function(data) {
-                    console.log('Editoriales encontradas:', data);  // Debugging: Ver la respuesta completa
+                  
                     response(data);  // Enviar los resultados directamente al autocompletar
                 },
                 error: function(xhr, status, error) {

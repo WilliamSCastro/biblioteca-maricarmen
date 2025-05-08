@@ -53,7 +53,7 @@ def get_user_by_token(token: str) -> Optional[Usuari]:
     except Usuari.DoesNotExist:
         return None
     except Exception as e:
-        print(f"Error fetching user by token: {e}")
+        
         return None
 
 # Function to format user data (reusable)
@@ -218,7 +218,7 @@ def buscar_cataleg(request, q: str):
         return resposta
 
     except Exception as e:
-        print("❌ Error en buscar_cataleg:", str(e))
+
         return []
 class ProfileUpdatePayload(Schema):
     email: str 
@@ -266,7 +266,7 @@ def update_profile(request: HttpRequest,                  # Access request for a
             user.save()
             return api.create_response(request, {"type": "success_modify", "userData": format_user_data(user)}, status=200)
         except Exception as e:
-            print(e)
+          
             return api.create_response(request, {"details": f"Error al intentar actualitzar el perfil. Torna a intentar-ho més tard"}, status=500)
 
     return api.create_response(request, {"type": "no_change", "detail": "No changes made."}, status=200)
@@ -628,7 +628,7 @@ def get_exemplars_centre(request):
     exact_registre = request.GET.get("exact_registration", "").strip()
 
     exemplars = Exemplar.objects.filter(centre=user.centre, baixa=False).select_related("cataleg", "centre").order_by("-id")
-    print(f"[DEBUG] Total d'exemplars abans de filtrar: {exemplars.count()}")
+   
 
     resultats = []
     for exemplar in exemplars:
@@ -637,25 +637,24 @@ def get_exemplars_centre(request):
         llibre = None
         editorial = ""
 
-        print(f"\n[DEBUG] Procesando exemplar: {registre}")
+    
 
         
         if exact_registre:
-            print(registre)
-            print(exact_registre)
+           
             if registre != exact_registre:
             # if exact_registre not in registre:
-                print(f"[DEBUG] → Registre no coincideix: {registre} ≠ {exact_registre}")
+               
                 continue
-            else:
-                print(f"[DEBUG] → Coincideix registre: {registre} = {exact_registre}")
+     
+                
 
 
         # Intentamos obtener Llibre solo una vez
         try:
             llibre = Llibre.objects.get(pk=cataleg.pk)
             editorial = (llibre.editorial or "").lower()
-            print(f"[DEBUG] → És llibre, editorial='{editorial}'")
+          
         except Llibre.DoesNotExist:
             print("[DEBUG] → No és un llibre.")
 
@@ -663,44 +662,36 @@ def get_exemplars_centre(request):
         if title_author_editorial:
             titol = (cataleg.titol or "").lower()
             autor = (cataleg.autor or "").lower()
-            print(f"[DEBUG] → Títol='{titol}', autor='{autor}', editorial='{editorial}'")
-
+           
             if (title_author_editorial not in titol and
                 title_author_editorial not in autor and
                 title_author_editorial not in editorial):
-                print("[DEBUG] → NO coincideix amb titol, autor ni editorial.")
+              
                 continue
-            else:
-                print("[DEBUG] → Coincideix title/author/editorial.")
+        
+              
 
         
         # Processem el registre
         parts = registre.split("-")
         if len(parts) != 3:
-            print("[DEBUG] → Formato de registre incorrecto")
+            
             continue
 
         _, year_part, number_part = parts
 
-        # # Filtro por año
-        # if year_filter and year_part != year_filter:
-        #     print(f"[DEBUG] → Any no coincideix: {year_part} ≠ {year_filter}")
-        #     continue
-        # elif year_filter:
-        #     print(f"[DEBUG] → Coincideix any: {year_part}")
-
-        # Filtro por número
+    
         try:
             num_registre = int(number_part)
-            print(f"[DEBUG] → Número extret: {num_registre}")
+            
         except ValueError:
-            print("[DEBUG] → Número del registre no és enter vàlid")
+          
             continue
 
         if range_min:
             try:
                 if num_registre < int(range_min):
-                    print(f"[DEBUG] → Filtrat per mínim: {num_registre} < {range_min}")
+                    
                     continue
             except ValueError:
                 print(f"[DEBUG] → Valor mínim invàlid: '{range_min}'")
@@ -708,7 +699,7 @@ def get_exemplars_centre(request):
         if range_max:
             try:
                 if num_registre > int(range_max):
-                    print(f"[DEBUG] → Filtrat per màxim: {num_registre} > {range_max}")
+                  
                     continue
             except ValueError:
                 print(f"[DEBUG] → Valor màxim invàlid: '{range_max}'")
@@ -723,7 +714,7 @@ def get_exemplars_centre(request):
             "centre_nom": exemplar.centre.nom if exemplar.centre else None,
         })
 
-    print(f"[DEBUG] Total d'exemplars després de filtrar: {len(resultats)}")
+   
     return resultats
 
 
@@ -754,7 +745,7 @@ def verify_microsoft_token(id_token: str):
             audience=CLIENT_ID,
             options={"verify_iss": False}
         )
-        print("✅ Token verificado con éxito. Payload:", payload)
+       
         return payload
 
     except Exception as e:
@@ -769,7 +760,7 @@ class SocialLoginSchema(Schema):
 
 @api.post("/social-login/")
 def social_login(request, data: SocialLoginSchema):
-    print(data)
+   
     try:
         if data.provider == "google":
             user_info = verify_google_token(data.token)

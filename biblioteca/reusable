@@ -66,9 +66,7 @@ class Exemplar(models.Model):
     for (let i = 0; i < exemplarToPrint.length; i++) {
       const { registre, CDU } = exemplarToPrint[i];
 
-      console.log("DADES PASSADES A PDF:");
-      console.log("registre:", registre);
-      console.log("CDU:", CDU);
+     
       const ean = registre.replace(/\D/g, "").padStart(13, "0").slice(0, 13);
   
       try {
