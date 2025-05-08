@@ -86,6 +86,7 @@ class Command(BaseCommand):
                         lloc=fake.city(),
                         pais=choice(paisos),
                         llengua=choice(llengues),
+                        CDU = randint(1, 100),
                         numero=randint(1, 50),
                         volums=randint(1, 5),
                         pagines=randint(50, 150),
@@ -99,6 +100,7 @@ class Command(BaseCommand):
                 elif tipus == "cd":
                     obj = CD.objects.create(
                         titol=fake.catch_phrase(),
+                        CDU = randint(1, 100),
                         autor=autor,
                         discografica=fake.company(),
                         estil=fake.word(),
@@ -109,6 +111,7 @@ class Command(BaseCommand):
                 elif tipus == "dvd":
                     obj = DVD.objects.create(
                         titol=fake.catch_phrase(),
+                        CDU = randint(1, 1000),
                         autor=autor,
                         productora=fake.company(),
                         duracio=fake.time_object(),
@@ -119,6 +122,7 @@ class Command(BaseCommand):
                     obj = BR.objects.create(
                         titol=fake.catch_phrase(),
                         autor=autor,
+                        CDU = randint(1, 100),
                         productora=fake.company(),
                         duracio=fake.time_object(),
                         signatura=f"{randint(100,999)}.BR",
@@ -128,6 +132,7 @@ class Command(BaseCommand):
                     obj = Dispositiu.objects.create(
                         titol=f"Dispositiu {fake.word()}",
                         autor=autor,
+                        CDU = randint(1, 1000),
                         marca=fake.company(),
                         model=fake.word(),
                         signatura=f"{randint(100,999)}.D",
